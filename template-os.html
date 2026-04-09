@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Ordem de Serviço</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; color: #333; margin: 0; padding: 0; }
+        .page { width: 100%; max-width: 800px; margin: 0 auto; padding: 30px; box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; margin-bottom: 20px; }
+        .company-details h1 { margin: 0; color: #0369a1; font-size: 22px; font-weight: bold; }
+        .company-details p { margin: 2px 0; font-size: 9px; color: #555; }
+        .os-details { text-align: right; }
+        .os-details h2 { margin: 0; font-size: 16px; font-weight: bold; }
+        .os-details p { margin: 2px 0; font-size: 10px; }
+        .section { margin-top: 25px; }
+        .section h3 { font-size: 12px; font-weight: bold; color: #0369a1; border-bottom: 1px solid #f0f0f0; padding-bottom: 5px; margin: 0 0 10px 0; }
+        .client-info p { margin: 2px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+        th { font-weight: bold; background-color: #f9fafb; font-size: 9px; text-transform: uppercase; color: #555; }
+        .text-right { text-align: right; }
+        .totals { margin-top: 25px; float: right; width: 280px; }
+        .totals table th, .totals table td { border: none; padding: 4px 8px; }
+        .totals table tr:last-child th, .totals table tr:last-child td { border-top: 1px solid #ccc; font-size: 12px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="header">
+            <div class="company-details">
+                <!-- Se você tiver um logo, pode colocar o link aqui -->
+                <!-- <img src="URL_DO_SEU_LOGO" alt="Logo Altnix" style="width: 150px; margin-bottom: 10px;"> -->
+                <h1>Altnix Tecnologia</h1>
+                <p>52.691.191 CRISTIAN ADAM BERAO</p>
+                <p>Rua do Aviador, 261, Casa, Carianos, Florianópolis - SC</p>
+                <p>(48) 99100-4780</p>
+            </div>
+            <div class="os-details">
+                <h2>Ordem de Serviço Nº {{NUMERO_OS}}</h2>
+                <p>Data de Emissão: {{DATA_EMISSAO}}</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Dados do Cliente</h3>
+            <div class="client-info">
+                <p><strong>Nome:</strong> {{CLIENTE_NOME}}</p>
+                <p><strong>Endereço:</strong> {{CLIENTE_ENDERECO}}</p>
+                <p><strong>Telefone:</strong> {{CLIENTE_TELEFONE}}</p>
+                <p><strong>Email:</strong> {{CLIENTE_EMAIL}}</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Serviços Prestados</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th class="text-right" style="width: 20%;">Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{SERVICOS_ITENS}}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>Peças Utilizadas</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th class="text-right" style="width: 15%;">Qtd</th>
+                        <th class="text-right" style="width: 20%;">Preço Un.</th>
+                        <th class="text-right" style="width: 20%;">Valor Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{PECAS_ITENS}}
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="clear: both;"></div>
+
+        <div class="totals">
+             <table>
+                <tr>
+                    <td>Total Serviços:</td>
+                    <td class="text-right">R$ {{TOTAL_SERVICOS}}</td>
+                </tr>
+                <tr>
+                    <td>Total Peças:</td>
+                    <td class="text-right">R$ {{TOTAL_PECAS}}</td>
+                </tr>
+                <tr>
+                    <th>Total Geral:</th>
+                    <th class="text-right">R$ {{TOTAL_GERAL}}</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

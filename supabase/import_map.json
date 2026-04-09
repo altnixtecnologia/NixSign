@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
+    "pdf-parse": "https://esm.sh/pdf-parse@1.2.4/lib/pdf-parse.js",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "https://deno.land/std@0.168.0/": "https://deno.land/std@0.168.0/"
+  }
+}

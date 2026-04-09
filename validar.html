@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validação com Modal de Erro</title>
+    
+    <style>
+        /* Estilos básicos */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        /* O formulário */
+        .form-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 25px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .form-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .form-container input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.1rem;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Garante que o padding não quebre o layout */
+        }
+
+        .form-container button {
+            width: 100%;
+            font-size: 1.2rem;
+            padding: 15px;
+            margin-top: 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* * A JANELA FLUTUANTE (MODAL DE ERRO)
+         */
+        
+        /* 1. O Fundo Escuro (Overlay) */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            
+            /* Começa escondido */
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        /* Classe para MOSTRAR o modal */
+        .modal-overlay.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* 2. O Conteúdo Branco (a Janela em si) */
+        .modal-content {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            
+            /* Responsivo para celular */
+            width: 90%; 
+            max-width: 400px; /* Limite em telas grandes */
+            
+            box-sizing: border-box;
+            text-align: center;
+        }
+        
+        .modal-content h3 {
+            margin-top: 0;
+            color: #dc3545; /* Cor vermelha para o título do erro */
+        }
+        
+        .modal-content p {
+            font-size: 1.1rem;
+            margin-bottom: 25px;
+        }
+
+        /* 3. O Botão de Fechar */
+        #btnFecharModal {
+            font-size: 1rem;
+            padding: 12px 25px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="form-container">
+        <h1>Concluir Assinatura</h1>
+        <p>Por favor, digite seu CPF ou CNPJ para validar.</p>
+        
+        <div>
+            <label for="documento-input">CPF ou CNPJ:</label>
+            <input type="text" id="documento-input" placeholder="Digite apenas números">
+        </div>
+        
+        <button id="btnConcluir">Validar e Concluir</button>
+    </div>
+
+
+    <div id="modalErro" class="modal-overlay">
+        
+        <div class="modal-content">
+            <h3>OPS! ALGO ESTÁ ERRADO</h3>
+            
+            <p id="modalMensagemErro">Este é um texto de exemplo.</p>
+            
+            <button id="btnFecharModal">Entendido</button>
+        </div>
+        
+    </div>
+
+
+    <script>
+        // Espera o documento carregar
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 1. Pegando os Elementos ---
+            const modal = document.getElementById('modalErro');
+            const btnFecharModal = document.getElementById('btnFecharModal');
+            const modalMensagemElemento = document.getElementById('modalMensagemErro');
+            
+            const btnConcluir = document.getElementById('btnConcluir');
+            const inputDocumento = document.getElementById('documento-input');
+
+            // --- 2. Funções do Modal de Erro ---
+            function openErrorModal(mensagem) {
+                // Define a mensagem de erro dentro do modal
+                modalMensagemElemento.textContent = mensagem;
+                // Torna o modal visível
+                modal.classList.add('visible');
+            }
+
+            function closeErrorModal() {
+                modal.classList.remove('visible');
+            }
+
+            // --- 3. Event Listeners (Quem chama quem) ---
+            
+            // Botão principal que dispara a validação
+            btnConcluir.addEventListener('click', () => {
+                const valorDigitado = inputDocumento.value;
+                
+                // Limpa o valor (tira pontos, traços, etc.)
+                const docLimpo = valorDigitado.replace(/[^\d]/g, '');
+
+                let ehValido = false;
+                let tipoDocumento = '';
+
+                // Verifica se é CPF ou CNPJ pelo tamanho
+                if (docLimpo.length === 11) {
+                    tipoDocumento = 'CPF';
+                    ehValido = validarCPF(docLimpo);
+                } else if (docLimpo.length === 14) {
+                    tipoDocumento = 'CNPJ';
+                    ehValido = validarCNPJ(docLimpo);
+                } else {
+                    // Se não tiver 11 ou 14 dígitos, já dá erro direto
+                    openErrorModal('Documento incompleto. Por favor, digite um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.');
+                    return; // Para a execução aqui
+                }
+
+                // Agora, verifica o resultado da validação
+                if (ehValido) {
+                    // SUCESSO!
+                    console.log(`${tipoDocumento} VÁLIDO. Concluindo assinatura...`);
+                    // Usamos um alert() simples para sucesso, 
+                    // mas aqui você colocaria a lógica de "próximo passo"
+                    alert(`Sucesso! ${tipoDocumento} validado corretamente.`);
+                } else {
+                    // ERRO!
+                    // Chama a JANELA FLUTUANTE com a mensagem de erro
+                    openErrorModal(`O ${tipoDocumento} digitado (${valorDigitado}) é INVÁLIDO. Por favor, verifique os números e tente novamente.`);
+                }
+            });
+
+            // Botão que fecha o modal
+            btnFecharModal.addEventListener('click', closeErrorModal);
+            
+            // Opcional: fechar o modal clicando no fundo escuro
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) { // Se o clique foi no fundo (overlay)
+                    closeErrorModal();
+                }
+            });
+
+
+            // --- 4. FUNÇÕES DE VALIDAÇÃO (CPF e CNPJ) ---
+            // (Coloquei as duas para ficar completo)
+
+            /**
+             * Função para validar CPF
+             */
+            function validarCPF(cpf) {
+                if (typeof cpf !== 'string') return false;
+                cpf = cpf.replace(/[^\d]/g, ''); // Remove caracteres não numéricos
+                if (cpf.length !== 11) return false;
+
+                // Verifica CPFs inválidos conhecidos (todos os dígitos iguais)
+                if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+                let soma = 0;
+                let resto;
+
+                // Validação do primeiro dígito verificador
+                for (let i = 1; i <= 9; i++) {
+                    soma += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+                }
+                resto = (soma * 10) % 11;
+                if (resto === 10 || resto === 11) resto = 0;
+                if (resto !== parseInt(cpf.substring(9, 10))) return false;
+
+                // Validação do segundo dígito verificador
+                soma = 0;
+                for (let i = 1; i <= 10; i++) {
+                    soma += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+                }
+                resto = (soma * 10) % 11;
+                if (resto === 10 || resto === 11) resto = 0;
+                if (resto !== parseInt(cpf.substring(10, 11))) return false;
+
+                return true; // CPF válido
+            }
+            
+            /**
+             * Função para validar CNPJ
+             */
+            function validarCNPJ(cnpj) {
+                if (typeof cnpj !== 'string') return false;
+                cnpj = cnpj.replace(/[^\d]/g, ''); // Remove caracteres não numéricos
+                if (cnpj.length !== 14) return false;
+
+                // Verifica CNPJs inválidos conhecidos (todos os dígitos iguais)
+                if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+                let tamanho = cnpj.length - 2;
+                let numeros = cnpj.substring(0, tamanho);
+                let digitos = cnpj.substring(tamanho);
+                let soma = 0;
+                let pos = tamanho - 7;
+
+                // Validação do primeiro dígito verificador
+                for (let i = tamanho; i >= 1; i--) {
+                    soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+                    if (pos < 2) pos = 9;
+                }
+                let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+                if (resultado !== parseInt(digitos.charAt(0))) return false;
+
+                // Validação do segundo dígito verificador
+                tamanho = tamanho + 1;
+                numeros = cnpj.substring(0, tamanho);
+                soma = 0;
+                pos = tamanho - 7;
+                for (let i = tamanho; i >= 1; i--) {
+                    soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+                    if (pos < 2) pos = 9;
+                }
+                resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+                if (resultado !== parseInt(digitos.charAt(1))) return false;
+
+                return true; // CNPJ válido
+            }
+
+        }); // Fim do 'DOMContentLoaded'
+    </script>
+
+</body>
+</html>

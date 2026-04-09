@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Assinaturas (Altnix Tecnologia)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos dos Modais */
+        .modal { display: none; }
+        .modal.active { display: flex !important; }
+        
+        /* Estilos Gerais */
+        .btn-disabled { cursor: not-allowed; opacity: 0.5; }
+        .pdf-preview-container { max-height: 75vh; overflow-y: auto; }
+        
+        /* Canvas de Desenho */
+        #pdf-drawing-canvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
+        #pdf-drawing-canvas[style*="pointer-events: none"] { cursor: default !important; }
+        
+        .btn-small { padding: 0.2rem 0.5rem; font-size: 0.75rem; line-height: 1; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 sm:p-8">
+
+    <div class="w-full max-w-6xl mx-auto bg-white rounded-lg shadow-md p-8">
+        <div class="flex flex-col md:flex-row justify-between items-center border-b pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Painel de Assinaturas (Altnix Tecnologia)</h1>
+            <button id="show-consultation-btn" class="mt-4 md:mt-0 bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition duration-300 text-sm flex items-center gap-2">
+                🔍 Consultar Documentos
+            </button>
+        </div>
+
+        <div id="initial-view" class="text-center py-8 space-y-6">
+            <div class="w-full max-w-xl mx-auto p-6 border rounded-lg bg-gray-50">
+                <h2 class="text-lg font-semibold text-gray-800 mb-3">Gerar a partir de Link do ERP</h2>
+                <p class="text-sm text-gray-600 mb-4">Cole o link da O.S. e clique em "Buscar".</p>
+                <div class="flex">
+                    <input type="url" id="os-url" class="flex-grow p-3 border border-gray-300 rounded-l-lg" placeholder="https://erp.tiny.com.br/doc.view?id=...">
+                    <button id="fetch-from-url-btn" class="bg-blue-600 text-white font-bold py-3 px-5 rounded-r-lg hover:bg-blue-700 transition duration-300">Buscar</button>
+                </div>
+                <div class="mt-2 text-right space-x-2">
+                    <button type="button" id="paste-url-btn" class="btn-small text-gray-600 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200">Colar</button>
+                    <button type="button" id="clear-url-btn" class="btn-small text-gray-600 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200">Limpar</button>
+                </div>
+            </div>
+            
+            <div class="relative py-2">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300"></div></div>
+                <div class="relative flex justify-center"><span class="px-2 bg-gray-100 text-sm text-gray-500">OU</span></div>
+            </div>
+            
+            <div class="w-full max-w-xl mx-auto p-6 border rounded-lg bg-gray-50">
+                <h2 class="text-lg font-semibold text-gray-800 mb-3">Enviar Arquivo PDF Manualmente</h2>
+                <p class="text-sm text-gray-600 mb-4">Selecione um arquivo PDF do seu computador.</p>
+                <label for="os-file" class="w-full max-w-md mx-auto cursor-pointer bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 transition duration-300 inline-flex items-center justify-center text-lg">
+                    + Selecionar Arquivo PDF
+                </label>
+                <input type="file" id="os-file" class="hidden" accept="application/pdf"/>
+            </div>
+        </div>
+
+        <div id="preparation-view" class="hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Preparação do Documento</h2>
+                <button id="cancel-preparation-btn" class="text-sm text-gray-600 hover:underline">Cancelar e Voltar</button>
+            </div>
+            
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="w-full md:w-2/3 border rounded-lg p-4 bg-gray-50">
+                    <div class="flex justify-between items-center mb-2 gap-2">
+                        <p id="instruction-text" class="text-center font-semibold text-blue-700 bg-blue-100 rounded px-2 py-2 flex-grow text-sm"></p>
+                        <button id="reset-drawing-btn" type="button" class="text-xs font-bold bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded border border-red-200 flex-shrink-0" title="Apagar desenhos e começar de novo">
+                            🗑️ Limpar Marcação
+                        </button>
+                    </div>
+                    <div id="pdf-preview-wrapper" class="relative w-full pdf-preview-container bg-white border"> 
+                        </div>
+                </div>
+                
+                <div class="w-full md:w-1/3">
+                    <form id="upload-form" class="space-y-4">
+                        
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">Dados Cliente</h3>
+                        <div>
+                            <label for="cliente-nome" class="block text-sm font-medium text-gray-700">Nome</label>
+                            <input type="text" id="cliente-nome" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white">
+                        </div>
+                        <div>
+                            <label for="cliente-telefone" class="block text-sm font-medium text-gray-700">WhatsApp</label>
+                            <input type="tel" id="cliente-telefone" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white">
+                        </div>
+                        <div>
+                            <label for="cliente-email" class="block text-sm font-medium text-gray-700">E-mail</label>
+                            <input type="email" id="cliente-email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white">
+                        </div>
+                        
+                        <div class="pt-4 border-t mt-4 mb-4 space-y-3">
+                            <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">Tipo de Documento</h3>
+                            
+                            <div class="flex items-center">
+                                <input id="tipo-os" name="tipo_documento" type="radio" value="os" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300" checked>
+                                <label for="tipo-os" class="ml-3 block text-sm font-medium text-gray-700">Ordem de Serviço (O.S.)</label>
+                            </div>
+                            
+                            <div class="flex items-center">
+                                <input id="tipo-contrato" name="tipo_documento" type="radio" value="contrato" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                                <label for="tipo-contrato" class="ml-3 block text-sm font-medium text-gray-700">Contrato</label>
+                            </div>
+                            
+                            <div class="flex items-center">
+                                <input id="tipo-proposta-pedido" name="tipo_documento" type="radio" value="proposta_pedido" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                                <label for="tipo-proposta-pedido" class="ml-3 block text-sm font-medium text-gray-700">Proposta / Pedido</label>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t mt-4 mb-4 space-y-3">
+                            <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">Opções de Assinatura</h3>
+                            
+                            <div class="relative flex items-start">
+                                <div class="flex items-center h-5">
+                                    <input id="skip-tecnico-checkbox" type="checkbox" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="skip-tecnico-checkbox" class="font-medium text-gray-700">Não exigir ass. técnico/vendedor</label>
+                                    <p class="text-gray-500">Pular área do técnico/vendedor.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="relative flex items-start">
+                                <div class="flex items-center h-5">
+                                    <input id="skip-cliente-checkbox" type="checkbox" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="skip-cliente-checkbox" class="font-medium text-gray-700">Não exigir ass. cliente</label>
+                                    <p class="text-gray-500">Pular área do cliente.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="relative flex items-start pt-3 border-t">
+                                <div class="flex items-center h-5">
+                                    <input id="use-default-areas-checkbox" type="checkbox" class="focus:ring-teal-500 h-4 w-4 text-teal-600 border-gray-300 rounded"> 
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="use-default-areas-checkbox" class="font-medium text-gray-700">Usar áreas padrão</label>
+                                    <p class="text-gray-500">Marque para usar áreas pré-definidas.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-4">
+                            <button type="submit" id="submit-button" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                                Gerar Link
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div id="feedback-message" class="mt-4 text-center text-sm"></div> 
+                    
+                    <div id="actions-container" class="mt-6 hidden space-y-4">
+                        <div id="link-gerado-container">
+                            <label class="block text-sm font-medium text-gray-700">Link Gerado:</label>
+                            <div class="mt-1 flex rounded-md shadow-sm">
+                                <input type="text" id="link-gerado-input" readonly class="flex-1 block w-full rounded-none rounded-l-md sm:text-sm border-gray-300 bg-gray-50 p-2">
+                                <button type="button" id="copiar-link-btn" class="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-700 text-sm hover:bg-gray-100">Copiar</button>
+                            </div>
+                        </div>
+                        <div id="whatsapp-container" class="hidden">
+                            <button type="button" id="whatsapp-btn" class="mt-1 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">Enviar WhatsApp</button>
+                        </div>
+                        <div id="post-generation-nav" class="pt-4 space-y-2 border-t mt-4">
+                            <button id="nav-to-new-btn" class="w-full text-center py-2 px-4 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">Novo Envio</button>
+                            <button id="nav-to-consult-btn" class="w-full text-center py-2 px-4 rounded-md text-sm font-medium text-white bg-gray-600 hover:bg-gray-700">Consultar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="consultation-view" class="hidden mt-10">
+             <div class="flex justify-between items-center mb-6 border-b pb-4">
+                 <h2 class="text-2xl font-bold text-gray-800">Consulta Docs</h2>
+                 <div class="flex items-center gap-4">
+                     <button id="refresh-list-btn" class="text-sm text-blue-600 hover:underline">Atualizar</button>
+                     <button id="back-to-initial-view-btn" class="text-sm text-blue-600 hover:underline">Voltar</button>
+                 </div>
+             </div>
+             <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                 <div class="flex-shrink-0">
+                     <span class="text-sm font-medium text-gray-700">Status:</span>
+                     <div id="status-filter-buttons" class="mt-1 inline-flex rounded-md shadow-sm">
+                         <button data-status="todos" class="px-4 py-2 bg-blue-600 text-white border border-gray-300 rounded-l-md text-sm font-medium">Todos</button>
+                         <button data-status="assinado" class="px-4 py-2 bg-white border-t border-b border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium">Assinados</button>
+                         <button data-status="pendente" class="px-4 py-2 bg-white border border-gray-300 rounded-r-md text-gray-700 hover:bg-gray-50 text-sm font-medium">Pendentes</button>
+                     </div>
+                 </div>
+                 <div class="flex-grow">
+                     <label for="search-input" class="text-sm font-medium text-gray-700">Busca:</label>
+                     <input type="text" id="search-input" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Nome, OS, status serviço...">
+                 </div>
+             </div>
+             <div id="document-list" class="space-y-4">
+                 <p id="list-loading-feedback" class="text-center text-gray-500 py-8">Carregando...</p>
+             </div>
+             <div id="pagination-controls" class="flex justify-between items-center mt-6 border-t pt-4">
+                 <button id="prev-page-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300 btn-disabled">Anterior</button>
+                 <span id="page-info" class="text-sm text-gray-600"></span>
+                 <button id="next-page-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300 btn-disabled">Próxima</button>
+             </div>
+        </div>
+    </div>
+    
+    <div id="details-modal" class="modal hidden fixed inset-0 bg-gray-800 bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto p-6 relative">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl font-bold">&times;</button>
+            <h3 class="text-xl font-bold mb-4 border-b pb-2">Detalhes Assinatura</h3>
+            <div id="modal-content" class="space-y-4 text-sm"></div>
+        </div>
+    </div>
+    
+    <div id="delete-confirm-modal" class="modal hidden fixed inset-0 bg-gray-800 bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Confirmar Exclusão</h3>
+            <p class="text-sm text-gray-600 mb-4">Excluir este documento e registros permanentemente? Ação irreversível.</p>
+            <div class="flex items-center mb-6">
+                <input id="delete-checkbox" type="checkbox" class="h-4 w-4 text-red-600 border-gray-300 rounded">
+                <label for="delete-checkbox" class="ml-2 block text-sm text-gray-900">Sim, excluir.</label>
+            </div>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm font-medium hover:bg-gray-300">Cancelar</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium btn-disabled">Confirmar Exclusão</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js`;</script>
+    <script type="module" src="js/admin.js"></script>
+</body>
+</html>

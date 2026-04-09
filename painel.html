@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin - NixSign</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js";</script>
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --surface: rgba(255, 255, 255, 0.9);
+            --surface-strong: #ffffff;
+            --ink: #0f172a;
+            --ink-soft: #5b6576;
+            --line: rgba(15, 23, 42, 0.14);
+            --line-strong: rgba(15, 23, 42, 0.24);
+            --brand: #2563eb;
+            --brand-dark: #1d4ed8;
+            --shadow: 0 20px 50px rgba(16, 24, 40, 0.08);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0b1220;
+                --surface: rgba(19, 28, 45, 0.86);
+                --surface-strong: #1b273b;
+                --ink: #e8edf7;
+                --ink-soft: #a9b5c9;
+                --line: rgba(206, 221, 243, 0.17);
+                --line-strong: rgba(206, 221, 243, 0.30);
+                --brand: #60a5fa;
+                --brand-dark: #3b82f6;
+                --shadow: 0 24px 56px rgba(0, 0, 0, 0.35);
+            }
+        }
+        body {
+            margin: 0;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background:
+                radial-gradient(circle at 92% 2%, rgba(37, 99, 235, 0.14), transparent 34%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 38%),
+                var(--bg);
+            color: var(--ink);
+        }
+        .workspace {
+            border: 1px solid var(--line-strong);
+            background: var(--surface-strong);
+            border-radius: 0 14px 14px 14px;
+            min-height: calc(100vh - 190px);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(8px);
+        }
+        .tabs {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }
+        .tabs::-webkit-scrollbar { height: 6px; }
+        .tabs::-webkit-scrollbar-thumb { background: #c3d3e8; border-radius: 999px; }
+        .browser-tab {
+            border: 1px solid var(--line-strong);
+            border-bottom: none;
+            border-radius: 12px 12px 0 0;
+            padding: 10px 16px;
+            background: color-mix(in srgb, var(--surface-strong) 86%, transparent);
+            color: var(--ink-soft);
+            font-size: 14px;
+            line-height: 1;
+            white-space: nowrap;
+            transition: 0.2s ease;
+        }
+        .browser-tab:hover { background: color-mix(in srgb, var(--brand) 8%, var(--surface-strong)); }
+        .browser-tab.tab-active {
+            background: var(--surface-strong);
+            color: var(--ink);
+            font-weight: 600;
+            transform: translateY(1px);
+            box-shadow: inset 0 -2px 0 var(--brand);
+        }
+        .modal { display: none; }
+        .modal.active { display: flex !important; }
+        .btn-disabled { cursor: not-allowed; opacity: 0.5; }
+        .pdf-preview-container { max-height: 72vh; overflow-y: auto; }
+        #pdf-drawing-canvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
+        .floating {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--surface-strong);
+            box-shadow: var(--shadow);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-3 sm:p-5">
+    <div class="mx-auto w-full max-w-7xl">
+        <header class="mb-3">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">NixSign</p>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-[var(--ink)]">Painel de Assinaturas</h1>
+                </div>
+                <div class="text-xs sm:text-sm text-[var(--ink-soft)]">
+                    Ambiente Profissional · Desktop e Mobile
+                </div>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button id="back-to-initial-view-btn" class="browser-tab tab-active" type="button">Novo Documento</button>
+            <button id="show-consultation-btn" class="browser-tab" type="button">Consultar</button>
+        </nav>
+
+        <main class="workspace p-4 sm:p-6">
+            <section id="initial-view">
+                <div class="border border-dashed border-slate-300 rounded-xl p-6 sm:p-8 bg-slate-50/50">
+                    <h2 class="text-xl font-semibold">Novo Documento</h2>
+                    <p class="mt-1 text-sm text-[var(--ink-soft)]">
+                        Faça upload do PDF para iniciar o fluxo de assinatura.
+                    </p>
+                    <div class="mt-6">
+                        <label for="os-file" class="cursor-pointer bg-[var(--brand)] text-white font-semibold py-3 px-5 rounded-lg hover:bg-[var(--brand-dark)] inline-flex items-center justify-center">
+                            Selecionar Arquivo PDF
+                        </label>
+                        <input type="file" id="os-file" class="hidden" accept="application/pdf">
+                    </div>
+                    <p class="mt-4 text-xs text-slate-500">
+                        Importação por link do ERP foi desativada neste layout.
+                    </p>
+                </div>
+            </section>
+
+            <section id="preparation-view" class="hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold">Preparação do Documento</h2>
+                        <p class="text-sm text-[var(--ink-soft)]">Defina as áreas de assinatura e preencha os dados do cliente.</p>
+                    </div>
+                    <button id="cancel-preparation-btn" class="text-sm text-slate-600 hover:underline">Cancelar</button>
+                </div>
+
+                <div class="grid lg:grid-cols-3 gap-5">
+                    <div class="lg:col-span-2 border border-slate-200 rounded-xl p-3 bg-slate-50">
+                        <div class="flex justify-between items-center mb-2 gap-2">
+                            <p id="instruction-text" class="text-center font-semibold text-blue-800 bg-blue-100 rounded px-3 py-2 flex-grow text-sm"></p>
+                            <button id="reset-drawing-btn" type="button" class="text-xs font-semibold bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded border border-red-200">
+                                Limpar
+                            </button>
+                        </div>
+                        <div id="pdf-preview-wrapper" class="relative w-full pdf-preview-container bg-white border border-slate-200 rounded-lg"></div>
+                    </div>
+
+                    <div class="border border-slate-200 rounded-xl p-4 bg-white">
+                        <form id="upload-form" class="space-y-4">
+                            <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Dados do Cliente</h3>
+                            <div><label class="block text-sm font-medium">Nome</label><input type="text" id="cliente-nome" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"></div>
+                            <div><label class="block text-sm font-medium">WhatsApp</label><input type="tel" id="cliente-telefone" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"></div>
+                            <div><label class="block text-sm font-medium">E-mail</label><input type="email" id="cliente-email" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"></div>
+
+                            <div class="pt-4 border-t border-slate-200 space-y-3">
+                                <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Tipo</h3>
+                                <div class="flex items-center"><input id="tipo-os" name="tipo_documento" type="radio" value="os" class="h-4 w-4 text-[var(--brand)]" checked><label for="tipo-os" class="ml-3 text-sm">Ordem de Serviço</label></div>
+                                <div class="flex items-center"><input id="tipo-contrato" name="tipo_documento" type="radio" value="contrato" class="h-4 w-4 text-[var(--brand)]"><label for="tipo-contrato" class="ml-3 text-sm">Contrato</label></div>
+                                <div class="flex items-center"><input id="tipo-proposta-pedido" name="tipo_documento" type="radio" value="proposta_pedido" class="h-4 w-4 text-[var(--brand)]"><label for="tipo-proposta-pedido" class="ml-3 text-sm">Proposta / Pedido</label></div>
+                            </div>
+
+                            <div class="pt-4 border-t border-slate-200 space-y-3">
+                                <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Assinaturas</h3>
+                                <div class="flex items-center"><input id="skip-tecnico-checkbox" type="checkbox" class="h-4 w-4 rounded"><label for="skip-tecnico-checkbox" class="ml-2 text-sm">Pular Empresa (Altnix)</label></div>
+                                <div class="flex items-center"><input id="skip-cliente-checkbox" type="checkbox" class="h-4 w-4 rounded"><label for="skip-cliente-checkbox" class="ml-2 text-sm">Pular Cliente</label></div>
+                                <div class="flex items-center pt-1"><input id="use-default-areas-checkbox" type="checkbox" class="h-4 w-4 rounded text-teal-600"><label for="use-default-areas-checkbox" class="ml-2 text-sm font-semibold text-teal-700">Usar Áreas Padrão</label></div>
+                            </div>
+
+                            <button type="submit" id="submit-button" class="w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-white bg-[var(--brand)] hover:bg-[var(--brand-dark)]">
+                                Gerar Link
+                            </button>
+                        </form>
+
+                        <div id="feedback-message" class="mt-4 text-center text-sm"></div>
+
+                        <div id="actions-container" class="mt-5 hidden space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium">Link:</label>
+                                <div class="mt-1 flex rounded-lg shadow-sm">
+                                    <input type="text" id="link-gerado-input" readonly class="flex-1 block w-full rounded-l-lg text-sm border-slate-300 bg-slate-50 p-2">
+                                    <button type="button" id="copiar-link-btn" class="inline-flex items-center px-3 rounded-r-lg border border-l-0 border-slate-300 bg-slate-50 text-slate-700 text-sm hover:bg-slate-100">Copiar</button>
+                                </div>
+                            </div>
+                            <div id="whatsapp-container" class="hidden">
+                                <button type="button" id="whatsapp-btn" class="mt-1 w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700">
+                                    Enviar WhatsApp
+                                </button>
+                            </div>
+                            <div class="pt-4 border-t border-slate-200 flex gap-2">
+                                <button id="nav-to-new-btn" class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-white bg-[var(--brand)] hover:bg-[var(--brand-dark)]">Novo</button>
+                                <button id="nav-to-consult-btn" class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-white bg-slate-700 hover:bg-slate-800">Consultar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="consultation-view" class="hidden">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5 border-b border-slate-200 pb-4">
+                    <h2 class="text-2xl font-bold">Consulta de Documentos</h2>
+                    <button id="refresh-list-btn" class="text-sm text-[var(--brand-dark)] hover:underline self-start sm:self-auto">Atualizar</button>
+                </div>
+
+                <div class="grid gap-4 lg:grid-cols-3 mb-6">
+                    <div>
+                        <span class="text-sm font-medium">Filtro:</span>
+                        <div id="status-filter-buttons" class="mt-1 inline-flex rounded-lg shadow-sm">
+                            <button data-status="todos" class="px-4 py-2 bg-blue-600 text-white border border-slate-300 rounded-l-lg text-sm">Todos</button>
+                            <button data-status="assinado" class="px-4 py-2 bg-white border-t border-b border-slate-300 text-slate-700 hover:bg-slate-50 text-sm">Assinados</button>
+                            <button data-status="pendente" class="px-4 py-2 bg-white border border-slate-300 rounded-r-lg text-slate-700 hover:bg-slate-50 text-sm">Pendentes</button>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label class="text-sm font-medium">Busca:</label>
+                        <input type="text" id="search-input" class="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm" placeholder="Nome, e-mail, documento, status...">
+                    </div>
+                </div>
+
+                <div id="document-list" class="space-y-4">
+                    <p id="list-loading-feedback" class="text-center text-slate-500 py-8">Carregando...</p>
+                </div>
+
+                <div id="pagination-controls" class="flex justify-between items-center mt-6 border-t border-slate-200 pt-4">
+                    <button id="prev-page-btn" class="px-4 py-2 bg-slate-200 rounded text-sm btn-disabled">Anterior</button>
+                    <span id="page-info" class="text-sm text-slate-600"></span>
+                    <button id="next-page-btn" class="px-4 py-2 bg-slate-200 rounded text-sm btn-disabled">Próxima</button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="details-modal" class="modal hidden fixed inset-0 bg-slate-900 bg-opacity-70 items-center justify-center p-4 z-50">
+        <div class="floating w-full max-w-2xl p-6 relative">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-2xl text-slate-400 hover:text-slate-700">&times;</button>
+            <h3 class="text-xl font-bold mb-4">Detalhes</h3>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <div id="delete-confirm-modal" class="modal hidden fixed inset-0 bg-slate-900 bg-opacity-70 items-center justify-center p-4 z-50">
+        <div class="floating w-full max-w-md p-6 relative">
+            <h3 class="text-xl font-bold mb-4">Excluir Documento</h3>
+            <p class="mb-4 text-sm text-slate-600">Essa ação não pode ser desfeita.</p>
+            <div class="flex items-center mb-6">
+                <input id="delete-checkbox" type="checkbox" class="mr-2">
+                <label for="delete-checkbox" class="text-sm">Sim, excluir permanentemente.</label>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-slate-200 rounded text-sm">Cancelar</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded text-sm btn-disabled">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/admin.js"></script>
+</body>
+</html>

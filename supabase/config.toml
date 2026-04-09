@@ -1,0 +1,11 @@
+# Arquivo de configuração do Supabase.
+
+project_id = "nlefwzyyhspyqcicfouc"
+
+# Configuração para a função que GERA o PDF final.
+[functions.gerar-pdf-assinado]
+import_map = "import_map.json"
+
+# Configuração para a função que PROCESSA o PDF para ler os dados.
+[functions.processar-pdf]
+import_map = "import_map.json"

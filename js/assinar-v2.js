@@ -4,6 +4,18 @@ import { setupPdfWorker } from './pdfHandler.js';
 setupPdfWorker();
 
 document.addEventListener('DOMContentLoaded', () => {
+    const LGPD_CONSENT_VERSION = 'nixsign-lgpd-v1-2026-04-09';
+    const LGPD_LEGAL_BASIS = 'execucao_de_contrato_e_exercicio_regular_de_direitos';
+    const LGPD_TREATMENT_PURPOSE = 'assinatura_eletronica_documental';
+    const LGPD_CONSENT_TEXT = 'Autorizo o tratamento dos dados pessoais para assinatura eletronica, validacao de identidade, auditoria e preservacao de evidencias legais.';
+
+    async function sha256Hex(value) {
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(value);
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
  	// --- Elementos da UI ---
  	const loadingView = document.getElementById('loading-view');
  	const mainContent = document.getElementById('main-content');
@@ -19,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
  	const userNameInput = document.getElementById('user-name');
  	const userEmailInput = document.getElementById('user-email');
  	const userCpfInput = document.getElementById('user-cpf');
+    const lgpdConsentCheckbox = document.getElementById('lgpd-consent-checkbox');
  	const clearSignatureBtn = document.getElementById('clear-signature-btn');
  	const submitSignatureBtn = document.getElementById('submit-signature-btn');
  	const signaturePadCanvas = document.getElementById('signature-pad');
@@ -33,8 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
  	const btnAbrirPdf = document.getElementById('btnAbrirPdf');
  	const btnAceitarDocumento = document.getElementById('btnAceitarDocumento');
  	const pdfViewer = document.getElementById('pdf-viewer');
- 	const zoomInBtn = document.getElementById('zoom-in-btn');
- 	const zoomOutBtn = document.getElementById('zoom-out-btn');
+  	const zoomInBtn = document.getElementById('zoom-in-btn');
+  	const zoomOutBtn = document.getElementById('zoom-out-btn');
+    const oauthHostname = document.getElementById('oauth-hostname');
  	
  	// --- Estado ---
  	let currentDocumentId = null;
@@ -44,6 +58,14 @@ document.addEventListener('DOMContentLoaded', () => {
  	let isRendering = false;
  	let pdfCarregado = false;
  	let documentoAceito = false;
+
+    function updateSubmitAvailability() {
+        const canSubmit = documentoAceito && !!lgpdConsentCheckbox?.checked;
+        submitSignatureBtn.disabled = !canSubmit;
+        submitSignatureBtn.classList.toggle('opacity-50', !canSubmit);
+        submitSignatureBtn.classList.toggle('cursor-not-allowed', !canSubmit);
+        submitSignatureBtn.classList.toggle('hover:bg-green-700', canSubmit);
+    }
 
  	// --- Controle de Visão ---
  	function showView(viewToShow) {
@@ -111,17 +133,20 @@ document.addEventListener('DOMContentLoaded', () => {
  		userCpfInput.disabled = false;
  		userCpfInput.placeholder = 'Digite seu CPF ou CNPJ';
  		userCpfInput.classList.remove('bg-gray-100', 'opacity-50', 'cursor-not-allowed');
+        if (lgpdConsentCheckbox) {
+            lgpdConsentCheckbox.disabled = false;
+            lgpdConsentCheckbox.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
 
  		signaturePadCanvas.classList.remove('bg-gray-100', 'opacity-50', 'cursor-not-allowed');
  		clearSignatureBtn.disabled = false;
  		clearSignatureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
  		
  		submitSignatureBtn.disabled = false;
- 		submitSignatureBtn.classList.remove('opacity-50', 'cursor-not-allowed');
- 		submitSignatureBtn.classList.add('hover:bg-green-700');
+        updateSubmitAvailability();
 
- 		userCpfInput.focus();
- 	}
+  		userCpfInput.focus();
+  	}
  	
  	// --- PDF Render ---
  	function initializeSignaturePad() {
@@ -195,9 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
  	}
 
  	// --- Inicialização ---
- 	async function initializePage() {
- 		const params = new URLSearchParams(window.location.search);
- 		currentDocumentId = params.get('id');
+  	async function initializePage() {
+  		const params = new URLSearchParams(window.location.search);
+  		currentDocumentId = params.get('id');
+        if (oauthHostname) oauthHostname.textContent = window.location.host || 'nixsign.vercel.app';
 
  		// Verifica sessionStorage (Sucesso anterior)
  		if (sessionStorage.getItem(`signed_${currentDocumentId}`) === 'true') {
@@ -247,6 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
  		event.preventDefault();
 
  		if (!documentoAceito) { openErrorModal("Você precisa primeiro ler e aceitar o documento."); return; }
+        if (!lgpdConsentCheckbox?.checked) { openErrorModal("Você precisa aceitar o termo LGPD para continuar."); return; }
  		if (!signaturePad || signaturePad.isEmpty()) { openErrorModal("Por favor, assine no campo tracejado."); return; }
 
  		const valorDigitado = userCpfInput.value;
@@ -262,19 +289,32 @@ document.addEventListener('DOMContentLoaded', () => {
  		submitSignatureBtn.disabled = true;
  		submitSignatureBtn.innerHTML = '<div class="loader mx-auto"></div>';
 
- 		try {
- 			const signatureImage = signaturePad.toDataURL('image/png');
- 			const dataHoraLocalFormatada = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
- 			
- 			await db.submitSignature({
- 				documento_id: currentDocumentId,
- 				nome_signatario: currentUser.user_metadata.full_name,
- 				email_signatario: currentUser.email,
- 				cpf_cnpj_signatario: userCpfInput.value,
- 				imagem_assinatura_base64: signatureImage,
- 				data_hora_local: dataHoraLocalFormatada,
- 				google_user_id: currentUser.id,
- 			});
+  		try {
+  			const signatureImage = signaturePad.toDataURL('image/png');
+  			const dataHoraLocalFormatada = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+            const consentTextHash = await sha256Hex(LGPD_CONSENT_TEXT);
+            const clientMeta = {
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+                language: navigator.language || '',
+                user_agent: navigator.userAgent || '',
+                signed_at_client_iso: new Date().toISOString(),
+            };
+  			
+  			await db.submitSignature({
+  				documento_id: currentDocumentId,
+  				nome_signatario: currentUser.user_metadata.full_name,
+  				email_signatario: currentUser.email,
+  				cpf_cnpj_signatario: userCpfInput.value,
+  				imagem_assinatura_base64: signatureImage,
+  				data_hora_local: dataHoraLocalFormatada,
+  				google_user_id: currentUser.id,
+                consent_accepted: true,
+                consent_version: LGPD_CONSENT_VERSION,
+                consent_text_hash: consentTextHash,
+                legal_basis: LGPD_LEGAL_BASIS,
+                treatment_purpose: LGPD_TREATMENT_PURPOSE,
+                client_meta: clientMeta,
+  			});
 
  			sessionStorage.setItem(`signed_${currentDocumentId}`, 'true');
  			showView('success-step');
@@ -289,11 +329,11 @@ document.addEventListener('DOMContentLoaded', () => {
  	}
 
  	// --- Event Listeners ---
- 	googleLoginBtn.addEventListener('click', async () => {
- 	 	try { 
+    if (googleLoginBtn) googleLoginBtn.addEventListener('click', async () => {
+  	 	try { 
             // [CORREÇÃO CRÍTICA AQUI] 
             // Adicionado redirectTo para garantir que volte para a página de assinatura
- 	 		const { error } = await db.supabase.auth.signInWithOAuth({
+  	 		const { error } = await db.supabase.auth.signInWithOAuth({
  	 			provider: 'google',
  	 			options: {
                     redirectTo: window.location.href, // <--- ESTA LINHA EVITA O ERRO 404
@@ -325,7 +365,10 @@ document.addEventListener('DOMContentLoaded', () => {
  		try { renderAllPdfPages(); } catch (e) {}
  	});
 
- 	signatureForm.addEventListener('submit', handleSignatureSubmit);
+	signatureForm.addEventListener('submit', handleSignatureSubmit);
+    if (lgpdConsentCheckbox) {
+        lgpdConsentCheckbox.addEventListener('change', updateSubmitAvailability);
+    }
  	clearSignatureBtn.addEventListener('click', () => {
  		if (documentoAceito && signaturePad) signaturePad.clear();
  	});

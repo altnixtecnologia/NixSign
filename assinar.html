@@ -67,6 +67,84 @@
             box-shadow: var(--shadow);
             backdrop-filter: blur(8px);
         }
+        .google-login-shell {
+            max-width: 560px;
+            margin-inline: auto;
+            text-align: left;
+            border-radius: 18px;
+            border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--border));
+            background: color-mix(in srgb, var(--surface-strong) 96%, transparent);
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+            overflow: hidden;
+        }
+        .google-login-head {
+            padding: 18px 20px 14px;
+            border-bottom: 1px solid var(--border);
+            display: grid;
+            gap: 10px;
+            justify-items: center;
+            text-align: center;
+        }
+        .google-login-logo {
+            width: 58px;
+            height: 58px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background: radial-gradient(circle at 35% 30%, #fff, #eef4ff 72%);
+            border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--border));
+            font-weight: 700;
+            font-size: 34px;
+            color: #4285f4;
+        }
+        .google-login-body {
+            padding: 16px 20px;
+            display: grid;
+            gap: 12px;
+        }
+        .google-account-preview {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            gap: 10px;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--surface-strong) 90%, transparent);
+            padding: 10px;
+        }
+        .google-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            background: linear-gradient(145deg, #d9e8ff, #a9c8ff);
+            display: grid;
+            place-items: center;
+            color: #1d4ed8;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .google-login-actions {
+            padding: 14px 20px 18px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .google-action-btn {
+            min-height: 40px;
+            border-radius: 999px;
+            padding: 0 18px;
+            border: 1px solid var(--border);
+            background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
+            color: var(--text-soft);
+            font-weight: 600;
+        }
+        .google-action-btn--primary {
+            background: linear-gradient(120deg, #48b95f, #2f8f43);
+            border-color: rgba(35, 120, 55, 0.55);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -86,15 +164,31 @@
             </div>
         </header>
 
-        <div id="login-step" class="glass-card text-center p-6 sm:p-8 rounded-2xl">
-            <h2 class="text-xl font-bold text-slate-800 mb-2">Autenticação necessária</h2>
-            <p class="text-slate-600 mb-6 text-sm sm:text-base">
-                Para segurança e validade jurídica do processo, faça login com sua conta Google.
-            </p>
-            <button id="google-login-btn" class="bg-[var(--brand)] text-white font-semibold py-3 px-6 rounded-lg hover:bg-[var(--brand-dark)] transition inline-flex items-center">
-                Entrar com Google
-            </button>
-            <p id="login-error" class="text-red-500 mt-4 text-sm"></p>
+        <div id="login-step" class="google-login-shell">
+            <div class="google-login-head">
+                <div class="google-login-logo">G</div>
+                <h2 class="text-xl font-bold" style="color: var(--text);">Fazer login em <span id="oauth-hostname">nixsign.vercel.app</span> com google.com</h2>
+            </div>
+            <div class="google-login-body">
+                <div class="google-account-preview">
+                    <div class="google-avatar">G</div>
+                    <div>
+                        <p class="text-sm font-semibold" style="color: var(--text);">Conta Google</p>
+                        <p class="text-xs" style="color: var(--text-soft);">Use sua conta para validar identidade e assinatura.</p>
+                    </div>
+                </div>
+                <p class="text-sm" style="color: var(--text-soft);">
+                    Para continuar, o Google compartilhará nome, e-mail e foto do perfil com este site.
+                    Consulte a <a href="privacidade.html" target="_blank" rel="noopener noreferrer" class="underline">Política de Privacidade</a>.
+                </p>
+                <p id="login-error" class="text-red-500 text-sm"></p>
+            </div>
+            <div class="google-login-actions">
+                <a href="index.html" class="google-action-btn inline-flex items-center justify-center">Voltar</a>
+                <button id="google-login-btn" class="google-action-btn google-action-btn--primary inline-flex items-center justify-center">
+                    Continuar com Google
+                </button>
+            </div>
         </div>
 
         <div id="signing-step" class="hidden space-y-4 sm:space-y-6">
@@ -120,6 +214,16 @@
                     <div>
                         <label for="user-cpf" class="block text-sm font-medium text-slate-700">CPF/CNPJ (Obrigatório)</label>
                         <input type="text" id="user-cpf" class="mt-1 block w-full p-2.5 border border-slate-300 rounded-lg bg-slate-100 opacity-50 cursor-not-allowed" placeholder="Aceite o documento para habilitar" required disabled>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <label class="flex items-start gap-2 text-sm text-slate-700">
+                            <input type="checkbox" id="lgpd-consent-checkbox" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-[var(--brand)] opacity-50 cursor-not-allowed" disabled>
+                            <span>
+                                Confirmo que li e concordo com o tratamento dos meus dados pessoais para assinatura eletrônica deste documento, nos termos da LGPD, política de privacidade e registro de auditoria.
+                                <a href="privacidade.html" target="_blank" rel="noopener noreferrer" class="underline text-[var(--brand)]">Política de Privacidade</a>
+                            </span>
+                        </label>
+                        <p class="mt-2 text-xs text-slate-500">Base legal: execução de contrato e exercício regular de direitos.</p>
                     </div>
                     <div id="signature-pad-container">
                         <p class="block text-sm font-medium text-slate-700">Assinatura</p>

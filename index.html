@@ -82,17 +82,232 @@
                 <a href="painel.html" id="access-panel-btn" class="entry-btn w-full inline-flex justify-center items-center px-5 py-3 text-sm">
                     Acessar Painel
                 </a>
-                <button id="google-login-btn" type="button" class="entry-btn-ghost w-full inline-flex justify-center items-center px-5 py-3 text-sm cursor-not-allowed" disabled>
-                    Login com Google (em breve)
+                <button id="google-login-btn" type="button" class="entry-btn-ghost w-full inline-flex justify-center items-center px-5 py-3 text-sm">
+                    Continuar com Google
+                </button>
+                <button id="google-logout-btn" type="button" class="entry-btn-ghost w-full inline-flex justify-center items-center px-5 py-3 text-sm hidden">
+                    Sair da Conta
                 </button>
             </div>
 
-            <div class="mt-8 rounded-xl border p-4" style="border-color: var(--border); background: color-mix(in srgb, var(--brand-soft) 32%, var(--surface-strong));">
+            <div class="mt-4 rounded-xl border p-4 space-y-3" style="border-color: var(--border); background: color-mix(in srgb, var(--surface-strong) 94%, transparent);">
+                <p class="text-xs uppercase tracking-wide" style="color: var(--text-soft);">Login por Usuário</p>
+                <div>
+                    <label for="email-login-input" class="text-xs" style="color: var(--text-soft);">E-mail</label>
+                    <input id="email-login-input" type="email" autocomplete="email" class="mt-1 w-full rounded-lg border px-3 py-2 text-sm" style="border-color: var(--border); background: var(--surface-strong); color: var(--text);" placeholder="voce@empresa.com.br">
+                </div>
+                <div>
+                    <label for="password-login-input" class="text-xs" style="color: var(--text-soft);">Senha</label>
+                    <input id="password-login-input" type="password" autocomplete="current-password" class="mt-1 w-full rounded-lg border px-3 py-2 text-sm" style="border-color: var(--border); background: var(--surface-strong); color: var(--text);" placeholder="Digite sua senha">
+                </div>
+                <div class="grid sm:grid-cols-2 gap-2">
+                    <button id="email-login-btn" type="button" class="entry-btn w-full inline-flex justify-center items-center px-4 py-2 text-sm">
+                        Entrar com E-mail
+                    </button>
+                    <button id="email-signup-btn" type="button" class="entry-btn-ghost w-full inline-flex justify-center items-center px-4 py-2 text-sm">
+                        Criar Conta
+                    </button>
+                </div>
+                <button id="forgot-password-btn" type="button" class="entry-btn-ghost w-full inline-flex justify-center items-center px-4 py-2 text-sm">
+                    Esqueci Minha Senha
+                </button>
                 <p class="text-xs leading-relaxed" style="color: var(--text-soft);">
-                    O login federado será ativado na próxima etapa de configuração.
+                    Acesso por e-mail/senha: somente usuários convidados pela empresa conseguem entrar no painel.
+                </p>
+            </div>
+
+            <div id="reset-password-box" class="mt-4 rounded-xl border p-4 space-y-3 hidden" style="border-color: var(--border); background: color-mix(in srgb, var(--brand-soft) 20%, var(--surface-strong));">
+                <p class="text-xs uppercase tracking-wide" style="color: var(--text-soft);">Recuperação de Senha</p>
+                <div>
+                    <label for="reset-password-input" class="text-xs" style="color: var(--text-soft);">Nova senha</label>
+                    <input id="reset-password-input" type="password" autocomplete="new-password" class="mt-1 w-full rounded-lg border px-3 py-2 text-sm" style="border-color: var(--border); background: var(--surface-strong); color: var(--text);" placeholder="Mínimo 6 caracteres">
+                </div>
+                <div>
+                    <label for="reset-password-confirm-input" class="text-xs" style="color: var(--text-soft);">Confirmar nova senha</label>
+                    <input id="reset-password-confirm-input" type="password" autocomplete="new-password" class="mt-1 w-full rounded-lg border px-3 py-2 text-sm" style="border-color: var(--border); background: var(--surface-strong); color: var(--text);" placeholder="Repita a nova senha">
+                </div>
+                <button id="reset-password-btn" type="button" class="entry-btn w-full inline-flex justify-center items-center px-4 py-2 text-sm">
+                    Definir Nova Senha
+                </button>
+                <p class="text-xs" style="color: var(--text-soft);">
+                    Esta área aparece quando você abre o link de recuperação enviado por e-mail.
+                </p>
+            </div>
+
+            <div class="mt-8 rounded-xl border p-4" style="border-color: var(--border); background: color-mix(in srgb, var(--brand-soft) 32%, var(--surface-strong));">
+                <p id="entry-auth-status" class="text-xs leading-relaxed" style="color: var(--text-soft);">
+                    Faça login para registrar seu usuário admin nas ações do painel.
                 </p>
             </div>
         </section>
     </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module">
+        import { supabase } from './js/supabaseService.js';
+
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const googleLogoutBtn = document.getElementById('google-logout-btn');
+        const emailLoginInput = document.getElementById('email-login-input');
+        const passwordLoginInput = document.getElementById('password-login-input');
+        const emailLoginBtn = document.getElementById('email-login-btn');
+        const emailSignupBtn = document.getElementById('email-signup-btn');
+        const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+        const resetPasswordBox = document.getElementById('reset-password-box');
+        const resetPasswordInput = document.getElementById('reset-password-input');
+        const resetPasswordConfirmInput = document.getElementById('reset-password-confirm-input');
+        const resetPasswordBtn = document.getElementById('reset-password-btn');
+        const authStatus = document.getElementById('entry-auth-status');
+
+        const painelRedirect = new URL('painel.html', window.location.href).toString();
+        const recoveryRedirect = new URL('index.html', window.location.href).toString();
+
+        function isRecoveryFlow() {
+            const hash = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+            return hash.get('type') === 'recovery';
+        }
+
+        function getCredentials() {
+            const email = String(emailLoginInput?.value || '').trim().toLowerCase();
+            const password = String(passwordLoginInput?.value || '');
+            if (!email || !password) throw new Error('Informe e-mail e senha.');
+            if (password.length < 6) throw new Error('A senha deve ter ao menos 6 caracteres.');
+            return { email, password };
+        }
+
+        async function refreshAuthState() {
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user || null;
+            const inRecoveryFlow = isRecoveryFlow();
+
+            if (user) {
+                if (authStatus) authStatus.textContent = `Conectado como ${user.email || 'usuário autenticado'}.`;
+                if (googleLoginBtn) googleLoginBtn.textContent = 'Trocar Conta Google';
+                if (googleLogoutBtn) googleLogoutBtn.classList.remove('hidden');
+                if (emailLoginInput) emailLoginInput.value = user.email || '';
+                if (passwordLoginInput) passwordLoginInput.value = '';
+            } else {
+                if (authStatus) authStatus.textContent = 'Faça login para registrar seu usuário admin nas ações do painel.';
+                if (googleLoginBtn) googleLoginBtn.textContent = 'Continuar com Google';
+                if (googleLogoutBtn) googleLogoutBtn.classList.add('hidden');
+            }
+
+            if (resetPasswordBox) {
+                resetPasswordBox.classList.toggle('hidden', !inRecoveryFlow);
+            }
+            if (inRecoveryFlow && authStatus) {
+                authStatus.textContent = 'Link de recuperação detectado. Defina sua nova senha abaixo.';
+            }
+        }
+
+        if (googleLoginBtn) {
+            googleLoginBtn.addEventListener('click', async () => {
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: painelRedirect,
+                        queryParams: { prompt: 'select_account' }
+                    }
+                });
+                if (error && authStatus) authStatus.textContent = `Erro no login Google: ${error.message}`;
+            });
+        }
+
+        if (emailLoginBtn) {
+            emailLoginBtn.addEventListener('click', async () => {
+                try {
+                    const { email, password } = getCredentials();
+                    const { error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    window.location.href = 'painel.html';
+                } catch (error) {
+                    if (authStatus) authStatus.textContent = `Erro no login: ${error.message}`;
+                }
+            });
+        }
+
+        if (emailSignupBtn) {
+            emailSignupBtn.addEventListener('click', async () => {
+                try {
+                    const { email, password } = getCredentials();
+                    const { data, error } = await supabase.auth.signUp({
+                        email,
+                        password,
+                        options: { emailRedirectTo: painelRedirect }
+                    });
+                    if (error) throw error;
+
+                    if (data?.session) {
+                        if (authStatus) authStatus.textContent = 'Conta criada com sucesso. Redirecionando para o painel...';
+                        window.location.href = 'painel.html';
+                        return;
+                    }
+
+                    if (authStatus) {
+                        authStatus.textContent = 'Conta criada. Confira seu e-mail para confirmar o acesso e depois faça login.';
+                    }
+                } catch (error) {
+                    if (authStatus) authStatus.textContent = `Erro ao criar conta: ${error.message}`;
+                }
+            });
+        }
+
+        if (forgotPasswordBtn) {
+            forgotPasswordBtn.addEventListener('click', async () => {
+                try {
+                    const email = String(emailLoginInput?.value || '').trim().toLowerCase();
+                    if (!email) throw new Error('Informe o e-mail para recuperar a senha.');
+                    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                        redirectTo: recoveryRedirect
+                    });
+                    if (error) throw error;
+                    if (authStatus) authStatus.textContent = 'E-mail de recuperação enviado. Verifique sua caixa de entrada.';
+                } catch (error) {
+                    if (authStatus) authStatus.textContent = `Erro ao solicitar recuperação: ${error.message}`;
+                }
+            });
+        }
+
+        if (resetPasswordBtn) {
+            resetPasswordBtn.addEventListener('click', async () => {
+                try {
+                    const newPassword = String(resetPasswordInput?.value || '');
+                    const newPasswordConfirm = String(resetPasswordConfirmInput?.value || '');
+                    if (newPassword.length < 6) throw new Error('Nova senha deve ter ao menos 6 caracteres.');
+                    if (newPassword !== newPasswordConfirm) throw new Error('As senhas não conferem.');
+
+                    const { error } = await supabase.auth.updateUser({ password: newPassword });
+                    if (error) throw error;
+
+                    if (resetPasswordInput) resetPasswordInput.value = '';
+                    if (resetPasswordConfirmInput) resetPasswordConfirmInput.value = '';
+                    if (resetPasswordBox) resetPasswordBox.classList.add('hidden');
+                    if (authStatus) authStatus.textContent = 'Senha redefinida com sucesso. Faça login novamente.';
+                    await supabase.auth.signOut();
+                    if (window.location.hash) window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+                    await refreshAuthState();
+                } catch (error) {
+                    if (authStatus) authStatus.textContent = `Erro ao redefinir senha: ${error.message}`;
+                }
+            });
+        }
+
+        if (googleLogoutBtn) {
+            googleLogoutBtn.addEventListener('click', async () => {
+                await supabase.auth.signOut();
+                await refreshAuthState();
+            });
+        }
+
+        supabase.auth.onAuthStateChange((event) => {
+            if (event === 'PASSWORD_RECOVERY' && resetPasswordBox) {
+                resetPasswordBox.classList.remove('hidden');
+                if (authStatus) authStatus.textContent = 'Recuperação iniciada. Defina sua nova senha.';
+            }
+            refreshAuthState().catch(() => {});
+        });
+
+        refreshAuthState().catch(() => {});
+    </script>
 </body>
 </html>

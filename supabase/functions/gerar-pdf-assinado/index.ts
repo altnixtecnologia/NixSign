@@ -15,6 +15,19 @@ const COMPANY_DATA = {
     logo_url: "https://nlefwzyyhspyqcicfouc.supabase.co/storage/v1/object/public/logo/logo-retangular-branca.png"
 };
 
+function formatDateBrazil(value: unknown): string {
+    if (!value) return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const date = new Date(String(value));
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
+async function buildVerificationCode(seed: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(seed));
+    const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}`.toUpperCase();
+}
+
 // --- FUNÇÃO DE DESENHO ÚNICA E PADRONIZADA ---
 function drawStandardSeal(page: PDFPage, coords: { x: number, y: number, width: number, height: number }, signatureImage: PDFImage | null, font: PDFFont, details: any, verificationCode: string, isClient: boolean) {
     
@@ -72,8 +85,6 @@ function drawStandardSeal(page: PDFPage, coords: { x: number, y: number, width: 
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') { return new Response('ok', { headers: corsHeaders }); }
-
-  const verificationCode = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
   
   try {
     const { documento_id } = await req.json();
@@ -88,7 +99,7 @@ serve(async (req) => {
     if (!signData) throw new Error(`Assinatura não encontrada.`);
     
     // 1.5 Busca ID Google Numérico do Cliente
-    let clientGoogleNumericId = "Login Email";
+    let clientGoogleNumericId = "N/A";
     try {
         const { data: userData } = await supabaseAdmin.auth.admin.getUserById(signData.google_user_id);
         if (userData?.user?.identities) {
@@ -96,6 +107,16 @@ serve(async (req) => {
             if (googleIdentity) clientGoogleNumericId = googleIdentity.id; 
         }
     } catch (e) { /* Ignora */ }
+
+    const signedAtBrazil = formatDateBrazil(signData.assinado_em || signData.created_at || signData.data_hora_local);
+    const verificationSeed = [
+      String(documento_id),
+      String(signData.id ?? ''),
+      String(signData.google_user_id ?? ''),
+      String(signData.cpf_cnpj_signatario ?? '').replace(/\D/g, ''),
+      String(signData.assinado_em ?? signData.created_at ?? signData.data_hora_local ?? ''),
+    ].join('|');
+    const verificationCode = await buildVerificationCode(verificationSeed);
 
     // 2. Downloads
     const { data: originalPdfFile, error: pdfError } = await supabaseAdmin.storage.from('documentos').download(docData.caminho_arquivo_storage); 
@@ -174,7 +195,7 @@ serve(async (req) => {
         nome: COMPANY_DATA.nome,
         email: docData.admin_email || "altnixtecnologia@gmail.com",
         cpf_cnpj: COMPANY_DATA.cpf_cnpj,
-        data: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+        data: signedAtBrazil,
         ip: docData.admin_ip || "IP não registrado",
         id_auth: (docData.admin_id && docData.admin_id !== "Admin") ? docData.admin_id : COMPANY_DATA.auth_id_admin
     };
@@ -183,8 +204,8 @@ serve(async (req) => {
         nome: signData.nome_signatario,
         email: signData.email_signatario,
         cpf_cnpj: signData.cpf_cnpj_signatario.replace(/\D/g, ''),
-        data: signData.data_hora_local,
-        ip: signData.ip_signatario,
+        data: signedAtBrazil,
+        ip: signData.ip_signatario || "IP não informado",
         id_auth: signData.google_user_id,
         id_google: clientGoogleNumericId
     };
@@ -237,6 +258,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ success: true, message: 'PDF assinado e email enviado.' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ error: errorMessage }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
   }
 });

@@ -8,9 +8,10 @@ const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
 
 function buildCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') ?? '';
+  const isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
   const allowOrigin = allowedOrigins.length === 0
-    ? '*'
-    : (allowedOrigins.includes(origin) ? origin : allowedOrigins[0]);
+    ? (origin || '*')
+    : (allowedOrigins.includes(origin) || isLocalOrigin ? origin : allowedOrigins[0]);
 
   return {
     'Access-Control-Allow-Origin': allowOrigin,
@@ -26,6 +27,28 @@ function jsonResponse(req: Request, status: number, payload: Record<string, unkn
   });
 }
 
+function extractBearerToken(req: Request): string {
+  const authHeader = req.headers.get('authorization') ?? '';
+  if (!authHeader.toLowerCase().startsWith('bearer ')) return '';
+  return authHeader.slice(7).trim();
+}
+
+function extractRequesterIp(req: Request): string {
+  const candidates = [
+    req.headers.get('cf-connecting-ip'),
+    req.headers.get('x-real-ip'),
+    req.headers.get('x-forwarded-for')?.split(',')[0],
+    req.headers.get('fly-client-ip'),
+  ];
+
+  for (const candidate of candidates) {
+    const ip = String(candidate ?? '').trim();
+    if (ip) return ip;
+  }
+
+  return 'IP não informado';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: buildCorsHeaders(req) });
   if (req.method !== 'POST') return jsonResponse(req, 405, { error: 'Método não permitido.' });
@@ -36,26 +59,35 @@ serve(async (req) => {
       return jsonResponse(req, 400, { error: 'Payload inválido.' });
     }
 
-    const { 
-      documento_id, nome_signatario, email_signatario, cpf_cnpj_signatario, 
-      imagem_assinatura_base64, data_hora_local, google_user_id, 
-      admin_id, admin_email, admin_ip, ip_signatario
-    } = payload;
+    const {
+      documento_id,
+      nome_signatario,
+      email_signatario,
+      cpf_cnpj_signatario,
+      imagem_assinatura_base64,
+      google_user_id,
+      consent_accepted,
+      consent_version,
+      consent_text_hash,
+      legal_basis,
+      treatment_purpose,
+      client_meta,
+    } = payload as Record<string, unknown>;
 
     const documentoId = String(documento_id ?? '').trim();
-    const nomeSignatario = String(nome_signatario ?? '').trim();
-    const emailSignatario = String(email_signatario ?? '').trim().toLowerCase();
+    const nomeSignatarioPayload = String(nome_signatario ?? '').trim();
+    const emailSignatarioPayload = String(email_signatario ?? '').trim().toLowerCase();
     const cpfCnpjDigits = String(cpf_cnpj_signatario ?? '').replace(/\D/g, '');
     const assinaturaBase64 = String(imagem_assinatura_base64 ?? '');
-    const dataHoraLocal = String(data_hora_local ?? '').trim();
-    const googleUserId = String(google_user_id ?? '').trim();
+    const googleUserIdPayload = String(google_user_id ?? '').trim();
+    const consentAccepted = consent_accepted === true;
+    const consentVersion = String(consent_version ?? '').trim();
+    const consentTextHash = String(consent_text_hash ?? '').trim().toLowerCase();
+    const legalBasis = String(legal_basis ?? '').trim().toLowerCase() || 'execucao_de_contrato_e_exercicio_regular_de_direitos';
+    const treatmentPurpose = String(treatment_purpose ?? '').trim().toLowerCase() || 'assinatura_eletronica_documental';
 
-    if (!documentoId || !nomeSignatario || !emailSignatario || !assinaturaBase64 || !dataHoraLocal || !googleUserId) {
+    if (!documentoId || !assinaturaBase64) {
       return jsonResponse(req, 400, { error: 'Campos obrigatórios ausentes.' });
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailSignatario)) {
-      return jsonResponse(req, 400, { error: 'E-mail inválido.' });
     }
 
     if (cpfCnpjDigits.length !== 11 && cpfCnpjDigits.length !== 14) {
@@ -70,18 +102,57 @@ serve(async (req) => {
       return jsonResponse(req, 413, { error: 'Assinatura excede o tamanho permitido.' });
     }
 
-    // CHAVES DE AMBIENTE (Project URL é o padrão para Edge Functions novas)
+    if (!consentAccepted || !consentVersion) {
+      return jsonResponse(req, 400, { error: 'Consentimento LGPD obrigatório para assinatura.' });
+    }
+
+    if (consentTextHash && !/^[a-f0-9]{64}$/.test(consentTextHash)) {
+      return jsonResponse(req, 400, { error: 'Hash do consentimento inválido.' });
+    }
+
     const sbUrl = Deno.env.get('PROJECT_URL') ?? Deno.env.get('SUPABASE_URL') ?? '';
     const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
-    
-    if (!sbUrl || !sbKey) throw new Error("Configuração incompleta no servidor.");
+    if (!sbUrl || !sbKey) throw new Error('Configuração incompleta no servidor.');
 
     const supabaseAdmin = createClient(sbUrl, sbKey);
 
-    // 0. Valida documento e evita assinatura duplicada
+    // 1) Usuário autenticado é obrigatório e precisa ser login Google
+    const token = extractBearerToken(req);
+    if (!token) {
+      return jsonResponse(req, 401, { error: 'Sessão inválida. Faça login novamente.' });
+    }
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return jsonResponse(req, 401, { error: 'Não autorizado para assinar.' });
+    }
+
+    const authUser = authData.user;
+    const identities = Array.isArray(authUser.identities) ? authUser.identities : [];
+    const googleIdentity = identities.find((identity) => identity.provider === 'google');
+    if (!googleIdentity) {
+      return jsonResponse(req, 403, { error: 'Assinatura exige autenticação com Google.' });
+    }
+
+    if (googleUserIdPayload && googleUserIdPayload !== authUser.id) {
+      return jsonResponse(req, 403, { error: 'Identidade de assinatura inválida.' });
+    }
+
+    const emailAutenticado = String(authUser.email ?? '').trim().toLowerCase();
+    if (!emailAutenticado || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAutenticado)) {
+      return jsonResponse(req, 400, { error: 'E-mail do usuário autenticado inválido.' });
+    }
+
+    const nomeAutenticado = String(authUser.user_metadata?.full_name ?? '').trim();
+    const nomeSignatarioFinal = (nomeAutenticado || nomeSignatarioPayload).trim();
+    if (!nomeSignatarioFinal) {
+      return jsonResponse(req, 400, { error: 'Nome do signatário não identificado.' });
+    }
+
+    // 2) Documento deve existir e ainda estar pendente
     const { data: docData, error: docError } = await supabaseAdmin
       .from('documentos')
-      .select('id, status')
+      .select('id, status, cliente_email, tenant_id')
       .eq('id', documentoId)
       .maybeSingle();
 
@@ -89,6 +160,12 @@ serve(async (req) => {
     if (!docData) return jsonResponse(req, 404, { error: 'Documento não encontrado.' });
     if (docData.status === 'assinado') {
       return jsonResponse(req, 409, { error: 'Documento já assinado.' });
+    }
+
+    // Se houver e-mail de destinatário definido, só ele pode assinar
+    const emailClienteDocumento = String(docData.cliente_email ?? '').trim().toLowerCase();
+    if (emailClienteDocumento && emailClienteDocumento !== emailAutenticado) {
+      return jsonResponse(req, 403, { error: 'Este link está vinculado a outro e-mail de assinatura.' });
     }
 
     const { count: existingCount, error: signatureCheckError } = await supabaseAdmin
@@ -101,20 +178,63 @@ serve(async (req) => {
       return jsonResponse(req, 409, { error: 'Este documento já possui assinatura registrada.' });
     }
 
-    // 1. Salvar Assinatura
-    const { error: insertError } = await supabaseAdmin
+    // 3) Evidências de rede e sessão coletadas no servidor
+    const ipServidor = extractRequesterIp(req);
+    const userAgent = String(req.headers.get('user-agent') ?? '').slice(0, 800);
+    const acceptLanguage = String(req.headers.get('accept-language') ?? '').slice(0, 200);
+    const clientMetaObj = (client_meta && typeof client_meta === 'object')
+      ? (client_meta as Record<string, unknown>)
+      : {};
+    const timezoneCliente = String(clientMetaObj.timezone ?? '').slice(0, 120);
+
+    const signedAt = new Date();
+    const dataHoraServidorBR = signedAt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+    // 4) Salva Assinatura (dados de identidade vêm do servidor)
+    const signatureInsertBase = {
+      documento_id: documentoId,
+      nome_signatario: nomeSignatarioFinal,
+      email_signatario: emailAutenticado,
+      cpf_cnpj_signatario: cpfCnpjDigits,
+      imagem_assinatura_base64: assinaturaBase64,
+      data_hora_local: dataHoraServidorBR,
+      google_user_id: authUser.id,
+      ip_signatario: ipServidor,
+    };
+
+    const signatureInsertLgpd = {
+      ...signatureInsertBase,
+      consent_version: consentVersion,
+      consent_text_hash: consentTextHash || null,
+      consent_accepted_at: signedAt.toISOString(),
+      consent_ip: ipServidor,
+      consent_user_agent: userAgent,
+      legal_basis: legalBasis,
+      treatment_purpose: treatmentPurpose,
+    };
+
+    let assinaturaCriada: { id: string } | null = null;
+    let insertError: Error | null = null;
+
+    const attemptLgpdInsert = await supabaseAdmin
       .from('assinaturas')
-      .insert({
-        documento_id: documentoId,
-        nome_signatario: nomeSignatario,
-        email_signatario: emailSignatario,
-        cpf_cnpj_signatario: cpfCnpjDigits,
-        imagem_assinatura_base64: assinaturaBase64,
-        data_hora_local: dataHoraLocal,
-        google_user_id: googleUserId,
-        ip_signatario: ip_signatario || req.headers.get("x-forwarded-for")?.split(',')[0]
-      });
-    
+      .insert(signatureInsertLgpd)
+      .select('id')
+      .single();
+
+    if (attemptLgpdInsert.error && String(attemptLgpdInsert.error.message).toLowerCase().includes('column') && String(attemptLgpdInsert.error.message).toLowerCase().includes('does not exist')) {
+      const fallbackInsert = await supabaseAdmin
+        .from('assinaturas')
+        .insert(signatureInsertBase)
+        .select('id')
+        .single();
+      assinaturaCriada = fallbackInsert.data as { id: string } | null;
+      insertError = fallbackInsert.error as Error | null;
+    } else {
+      assinaturaCriada = attemptLgpdInsert.data as { id: string } | null;
+      insertError = attemptLgpdInsert.error as Error | null;
+    }
+
     if (insertError) {
       if (insertError.message?.toLowerCase().includes('duplicate')) {
         return jsonResponse(req, 409, { error: 'Documento já assinado.' });
@@ -122,29 +242,81 @@ serve(async (req) => {
       throw new Error(`Erro ao salvar assinatura: ${insertError.message}`);
     }
 
-    // 2. Atualizar Status (e metadados do admin se vierem)
+    // 5) Atualiza status do documento
     const { error: updateError } = await supabaseAdmin
-        .from('documentos')
-        .update({ 
-            status: 'assinado',
-            ...(admin_ip ? { admin_ip: admin_ip } : {}),
-            ...(admin_id ? { admin_id: admin_id } : {}),
-            ...(admin_email ? { admin_email: admin_email } : {})
-        })
-        .eq('id', documentoId);
+      .from('documentos')
+      .update({ status: 'assinado' })
+      .eq('id', documentoId);
 
     if (updateError) throw new Error(`Erro ao atualizar status do documento: ${updateError.message}`);
 
-    // 3. CHAMA O GERADOR DE PDF (ASSÍNCRONO)
-    // Não usamos await para não travar o cliente se o PDF demorar
+    // 6) Tentativa de auditoria jurídica (com fallback)
+    const auditMetadata = {
+      assinatura_id: assinaturaCriada?.id ?? null,
+      signer_name: nomeSignatarioFinal,
+      signer_email: emailAutenticado,
+      signer_ip: ipServidor,
+      signer_user_agent: userAgent,
+      signer_accept_language: acceptLanguage,
+      signer_timezone: timezoneCliente,
+      auth_user_id: authUser.id,
+      auth_provider: 'google',
+      auth_email: emailAutenticado,
+      auth_email_confirmed_at: authUser.email_confirmed_at ?? null,
+      google_provider_user_id: String(googleIdentity.id ?? ''),
+      consent_accepted: consentAccepted,
+      consent_version: consentVersion,
+      consent_text_hash: consentTextHash || null,
+      legal_basis: legalBasis,
+      treatment_purpose: treatmentPurpose,
+      payload_email: emailSignatarioPayload || null,
+      signed_at_iso: signedAt.toISOString(),
+      signed_at_br: dataHoraServidorBR,
+    };
+
+    let persistedAudit = false;
+    try {
+      const { error: auditError } = await supabaseAdmin.from('audit_events').insert({
+        tenant_id: docData.tenant_id ?? null,
+        actor_user_id: authUser.id,
+        event_type: 'document_signed',
+        target_type: 'documentos',
+        target_id: documentoId,
+        metadata: auditMetadata,
+      });
+      if (!auditError) persistedAudit = true;
+    } catch {
+      // Fallback abaixo
+    }
+
+    if (!persistedAudit) {
+      try {
+        await supabaseAdmin.from('signature_audit_events').insert({
+          documento_id: documentoId,
+          assinatura_id: assinaturaCriada?.id ?? null,
+          event_type: 'document_signed',
+          signer_auth_user_id: authUser.id,
+          signer_email: emailAutenticado,
+          signer_ip: ipServidor,
+          signer_user_agent: userAgent,
+          signer_language: acceptLanguage,
+          signer_timezone: timezoneCliente,
+          google_provider_user_id: String(googleIdentity.id ?? ''),
+          metadata: auditMetadata,
+        });
+      } catch (auditFallbackError) {
+        console.warn('[salvar-assinatura] Auditoria não persistida:', auditFallbackError);
+      }
+    }
+
+    // 7) Gera PDF assinado em background
     supabaseAdmin.functions.invoke('gerar-pdf-assinado', {
-      body: { documento_id: documentoId }
-    }).catch(e => console.error("Erro background PDF:", e));
+      body: { documento_id: documentoId },
+    }).catch((e) => console.error('Erro background PDF:', e));
 
     return jsonResponse(req, 200, { success: true });
-
   } catch (error) {
-    console.error("Erro Fatal:", error);
+    console.error('Erro Fatal:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return jsonResponse(req, 500, { error: errorMessage });
   }

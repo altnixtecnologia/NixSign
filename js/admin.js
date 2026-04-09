@@ -6,22 +6,46 @@ import * as db from './supabaseService.js';
 import { extractDataFromPdf } from './pdfHandler.js';
 
 // --- CONSTANTES ---
-const DEFAULT_RECTS_PERCENT = {
-    tecnico: { x: 0.05, y: 0.79, width: 0.35, height: 0.07 },
-    cliente: { x: 0.50, y: 0.72, width: 0.45, height: 0.12 }
+const DEFAULT_RECTS_PERCENT_BY_TYPE = {
+    os: {
+        // O.S. costuma trazer linhas manuscritas no rodapé.
+        tecnico: { x: 0.06, y: 0.80, width: 0.36, height: 0.10 },
+        cliente: { x: 0.54, y: 0.80, width: 0.36, height: 0.10 }
+    },
+    contrato: {
+        tecnico: { x: 0.05, y: 0.79, width: 0.35, height: 0.07 },
+        cliente: { x: 0.50, y: 0.72, width: 0.45, height: 0.12 }
+    },
+    proposta: {
+        tecnico: { x: 0.05, y: 0.79, width: 0.35, height: 0.07 },
+        cliente: { x: 0.50, y: 0.72, width: 0.45, height: 0.12 }
+    },
+    pedido: {
+        tecnico: { x: 0.05, y: 0.79, width: 0.35, height: 0.07 },
+        cliente: { x: 0.50, y: 0.72, width: 0.45, height: 0.12 }
+    },
+    proposta_pedido: {
+        tecnico: { x: 0.05, y: 0.79, width: 0.35, height: 0.07 },
+        cliente: { x: 0.50, y: 0.72, width: 0.45, height: 0.12 }
+    },
+    default: {
+        tecnico: { x: 0.05, y: 0.79, width: 0.35, height: 0.07 },
+        cliente: { x: 0.50, y: 0.72, width: 0.45, height: 0.12 }
+    }
 };
+
+const TENANT_ROLE_LABEL = {
+    owner: 'Proprietário',
+    admin: 'Administrador',
+    manager: 'Gestor',
+    member: 'Membro',
+    billing: 'Financeiro'
+};
+
+const MASTER_ADMIN_EMAIL = 'altnixtecnologia@gmail.com';
 
 // --- ESTADO GLOBAL ---
 let adminUserData = { id: null, email: null }; 
-
-// --- FUNÇÕES UTILITÁRIAS ---
-async function getMyIp() {
-    try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip;
-    } catch (e) { return "IP não identificado"; }
-}
 
 function formatPhoneNumber(phone) {
     if (!phone) return ''; const digits = phone.replace(/\D/g, '');
@@ -30,10 +54,59 @@ function formatPhoneNumber(phone) {
     else { return phone; }
 }
 
+function sanitizeAutoFilledName(value) {
+    if (!value) return '';
+    let name = String(value).replace(/\s+/g, ' ').trim();
+    name = name.split(/\b(?:endere[cç]o|rua|avenida|av\.?|bairro|cidade|cep|e-?mail|email|telefone|whats(?:app)?|enviado por|cpf|cnpj)\b/i)[0].trim();
+    return name;
+}
+
+function sanitizeAutoFilledEmail(value) {
+    if (!value) return '';
+    const email = String(value).trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '';
+    return email;
+}
+
+function sanitizeAutoFilledPhone(value) {
+    if (!value) return '';
+    const digits = String(value).replace(/\D/g, '');
+    if (digits.length === 10 || digits.length === 11) return digits;
+    if (digits.startsWith('55') && digits.length === 12) return digits.slice(2);
+    if (digits.startsWith('55') && digits.length === 13) return digits.slice(2);
+    return '';
+}
+
 function sanitizarNomeArquivo(nome) {
     if (!nome) return 'doc-s-nome'; const a = 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþßŕ'; const b = 'aaaaaaaceeeeiiiionoooooouuuuybsr'; let n = nome.toLowerCase();
     for (let i = 0; i < a.length; i++) { n = n.replace(new RegExp(a.charAt(i), 'g'), b.charAt(i)); }
     return n.replace(/[^a-z0-9.\-_]/g, '-').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function formatDateTime(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString('pt-BR');
+}
+
+function getSelectedDocumentType() {
+    const selectedTypeRadio = document.querySelector('input[name="tipo_documento"]:checked');
+    return selectedTypeRadio ? selectedTypeRadio.value : 'os';
+}
+
+function getDefaultRectsForType() {
+    const selectedType = getSelectedDocumentType();
+    return DEFAULT_RECTS_PERCENT_BY_TYPE[selectedType] || DEFAULT_RECTS_PERCENT_BY_TYPE.default;
 }
 
 async function addWhitespaceToPdf(file) {
@@ -66,15 +139,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (user) {
             adminUserData.id = user.id;
             adminUserData.email = user.email;
+        } else {
+            window.location.href = 'index.html';
+            return;
         }
-    } catch(err) { console.error("Auth:", err.message); }
+    } catch(err) { 
+        console.error("Auth:", err.message); 
+        window.location.href = 'index.html';
+        return;
+    }
     
     // --- DECLARAÇÃO DE TODOS OS ELEMENTOS ---
     const osFileInput = document.getElementById('os-file');
     const uploadInitialView = document.getElementById('initial-view');
     const showConsultationBtn = document.getElementById('show-consultation-btn');
+    const showUsersBtn = document.getElementById('show-users-btn');
     const preparationView = document.getElementById('preparation-view');
+    const usersView = document.getElementById('users-view');
     const cancelPreparationBtn = document.getElementById('cancel-preparation-btn');
+    const workspaceContextLabel = document.getElementById('workspace-context-label');
     const instructionText = document.getElementById('instruction-text');
     const resetDrawingBtn = document.getElementById('reset-drawing-btn');
     const pdfPreviewWrapper = document.getElementById('pdf-preview-wrapper');
@@ -103,6 +186,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     const nextPageBtn = document.getElementById('next-page-btn');
     const pageInfo = document.getElementById('page-info');
     const refreshListBtn = document.getElementById('refresh-list-btn');
+
+    // Gestão de usuários / clientes
+    const refreshUsersBtn = document.getElementById('refresh-users-btn');
+    const usersFeedback = document.getElementById('users-feedback');
+    const tenantUserList = document.getElementById('tenant-user-list');
+    const inviteUserForm = document.getElementById('invite-user-form');
+    const inviteEmailInput = document.getElementById('invite-email-input');
+    const inviteNameInput = document.getElementById('invite-name-input');
+    const inviteRoleSelect = document.getElementById('invite-role-select');
+    const tenantInviteList = document.getElementById('tenant-invite-list');
+    const clientForm = document.getElementById('client-form');
+    const clientFormResetBtn = document.getElementById('client-form-reset-btn');
+    const clientIdInput = document.getElementById('client-id-input');
+    const clientNameInput = document.getElementById('client-name-input');
+    const clientEmailInput = document.getElementById('client-email-input');
+    const clientPhoneInput = document.getElementById('client-phone-input');
+    const clientDocumentInput = document.getElementById('client-document-input');
+    const clientNotesInput = document.getElementById('client-notes-input');
+    const tenantClientList = document.getElementById('tenant-client-list');
+    const accountPasswordForm = document.getElementById('account-password-form');
+    const accountNewPasswordInput = document.getElementById('account-new-password-input');
+    const accountNewPasswordConfirmInput = document.getElementById('account-new-password-confirm-input');
 
     // Modais
     const detailsModal = document.getElementById('details-modal');
@@ -136,6 +241,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     let debounceTimer;
     let docIdParaExcluir = null;
     let localExtractedData = {};
+    let workspaceContext = null;
+    let usersDataCache = [];
+    let invitesDataCache = [];
+    let clientsDataCache = [];
 
     // --- Funções Internas ---
     function showFeedback(message, type = 'info') {
@@ -153,12 +262,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     function setTopTab(tab) {
         if (backToInitialViewBtn) backToInitialViewBtn.classList.toggle('tab-active', tab === 'novo');
         if (showConsultationBtn) showConsultationBtn.classList.toggle('tab-active', tab === 'consulta');
+        if (showUsersBtn) showUsersBtn.classList.toggle('tab-active', tab === 'usuarios');
     }
 
     function resetPreparationView() {
         if(uploadInitialView) uploadInitialView.style.display = 'block';
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.add('hidden');
+        if(usersView) usersView.classList.add('hidden');
         setTopTab('novo');
 
         if(osFileInput) osFileInput.value = '';
@@ -211,9 +322,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch (e) { console.warn("Erro extração:", e); }
             }
 
-            if(clienteNomeInput) clienteNomeInput.value = localExtractedData?.nome || ''; 
-            if(clienteTelefoneInput) clienteTelefoneInput.value = formatPhoneNumber(localExtractedData?.telefone || ''); 
-            if(clienteEmailInput) clienteEmailInput.value = localExtractedData?.email || ''; 
+            const nomeExtraido = sanitizeAutoFilledName(localExtractedData?.nome || '');
+            const telefoneExtraido = sanitizeAutoFilledPhone(localExtractedData?.telefone || '');
+            const emailExtraido = sanitizeAutoFilledEmail(localExtractedData?.email || '');
+
+            if(clienteNomeInput) clienteNomeInput.value = nomeExtraido; 
+            if(clienteTelefoneInput) clienteTelefoneInput.value = formatPhoneNumber(telefoneExtraido); 
+            if(clienteEmailInput) clienteEmailInput.value = emailExtraido; 
 
             showFeedback(''); 
             await renderPdfPreview();
@@ -250,8 +365,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     function calculateAndApplyDefaultRects() {
         const cv = document.getElementById('pdf-drawing-canvas'); 
         if (!cv || cv.width === 0) { setTimeout(calculateAndApplyDefaultRects, 100); return; }
-        rects.tecnico = { x: Math.round(cv.width * DEFAULT_RECTS_PERCENT.tecnico.x), y: Math.round(cv.height * DEFAULT_RECTS_PERCENT.tecnico.y), width: Math.round(cv.width * DEFAULT_RECTS_PERCENT.tecnico.width), height: Math.round(cv.height * DEFAULT_RECTS_PERCENT.tecnico.height) };
-        rects.cliente = { x: Math.round(cv.width * DEFAULT_RECTS_PERCENT.cliente.x), y: Math.round(cv.height * DEFAULT_RECTS_PERCENT.cliente.y), width: Math.round(cv.width * DEFAULT_RECTS_PERCENT.cliente.width), height: Math.round(cv.height * DEFAULT_RECTS_PERCENT.cliente.height) };
+        const defaults = getDefaultRectsForType();
+        rects.tecnico = { x: Math.round(cv.width * defaults.tecnico.x), y: Math.round(cv.height * defaults.tecnico.y), width: Math.round(cv.width * defaults.tecnico.width), height: Math.round(cv.height * defaults.tecnico.height) };
+        rects.cliente = { x: Math.round(cv.width * defaults.cliente.x), y: Math.round(cv.height * defaults.cliente.y), width: Math.round(cv.width * defaults.cliente.width), height: Math.round(cv.height * defaults.cliente.height) };
         currentDrawingFor = 'done'; 
     }
 
@@ -354,6 +470,222 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (l) { ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif'; ctx.fillText(l, r.x + 5, r.y + 15); } 
     }
 
+    function setUsersFeedback(message, type = 'info') {
+        if (!usersFeedback) return;
+        const classes = {
+            info: 'text-slate-500',
+            success: 'text-green-600',
+            error: 'text-red-600'
+        };
+        usersFeedback.className = `text-sm ${classes[type] || classes.info}`;
+        usersFeedback.textContent = message || '';
+    }
+
+    function clearClientForm() {
+        if (clientIdInput) clientIdInput.value = '';
+        if (clientNameInput) clientNameInput.value = '';
+        if (clientEmailInput) clientEmailInput.value = '';
+        if (clientPhoneInput) clientPhoneInput.value = '';
+        if (clientDocumentInput) clientDocumentInput.value = '';
+        if (clientNotesInput) clientNotesInput.value = '';
+    }
+
+    function renderTenantUsers(members, profilesMap) {
+        if (!tenantUserList) return;
+        if (!members.length) {
+            tenantUserList.innerHTML = '<p class="text-sm text-slate-500">Nenhum usuário na empresa.</p>';
+            return;
+        }
+
+        const currentUserId = adminUserData.id;
+        tenantUserList.innerHTML = members.map((member) => {
+            const profile = profilesMap.get(member.user_id) || {};
+            const memberName = profile.full_name || profile.email || member.user_id;
+            const memberEmail = profile.email || '-';
+            const statusLabel = member.status === 'active' ? 'Ativo' : (member.status === 'disabled' ? 'Desativado' : member.status);
+            const statusClass = member.status === 'active'
+                ? 'bg-green-100 text-green-700 border-green-200'
+                : 'bg-amber-100 text-amber-700 border-amber-200';
+            const isSelf = member.user_id === currentUserId;
+
+            const roleOptions = ['owner', 'admin', 'manager', 'member', 'billing']
+                .map((role) => `<option value="${role}" ${member.role === role ? 'selected' : ''}>${TENANT_ROLE_LABEL[role] || role}</option>`)
+                .join('');
+
+            return `
+                <div class="rounded-lg border border-slate-200 p-3 bg-slate-50/60 space-y-2">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-slate-800 break-words">${escapeHtml(memberName)}</p>
+                            <p class="text-xs text-slate-500 break-words">${escapeHtml(memberEmail)}</p>
+                        </div>
+                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${statusClass}">${statusLabel}</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select data-member-role-select="${member.id}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs">
+                            ${roleOptions}
+                        </select>
+                        <button data-member-role-save="${member.id}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">
+                            Salvar Perfil
+                        </button>
+                        ${isSelf ? '<span class="text-xs text-slate-500">Seu usuário</span>' : `
+                            <button data-member-toggle-status="${member.id}" data-next-status="${member.status === 'active' ? 'disabled' : 'active'}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">
+                                ${member.status === 'active' ? 'Desativar' : 'Ativar'}
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderTenantInvites(invites) {
+        if (!tenantInviteList) return;
+        const pending = invites.filter((invite) => invite.status === 'pending');
+        if (!pending.length) {
+            tenantInviteList.innerHTML = '<p class="text-sm text-slate-500">Nenhum convite pendente.</p>';
+            return;
+        }
+        tenantInviteList.innerHTML = pending.map((invite) => `
+            <div class="rounded-lg border border-slate-200 p-3 bg-slate-50/50 flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-sm font-medium text-slate-800 break-words">${escapeHtml(invite.email)}</p>
+                    <p class="text-xs text-slate-500">
+                        ${TENANT_ROLE_LABEL[invite.role] || invite.role} · expira em ${formatDateTime(invite.expires_at)}
+                    </p>
+                </div>
+                <button data-revoke-invite="${invite.id}" class="text-xs text-red-600 hover:underline shrink-0">Revogar</button>
+            </div>
+        `).join('');
+    }
+
+    function renderTenantClients(clients) {
+        if (!tenantClientList) return;
+        if (!clients.length) {
+            tenantClientList.innerHTML = '<p class="col-span-full text-sm text-slate-500">Nenhum cliente cadastrado.</p>';
+            return;
+        }
+        tenantClientList.innerHTML = clients.map((client) => `
+            <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-2">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-slate-800 break-words">${escapeHtml(client.display_name)}</p>
+                        <p class="text-xs text-slate-500 break-words">${escapeHtml(client.email || 'Sem e-mail')}</p>
+                    </div>
+                    <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${client.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}">
+                        ${client.status === 'active' ? 'Ativo' : 'Inativo'}
+                    </span>
+                </div>
+                <div class="text-xs text-slate-600 space-y-0.5">
+                    <p>WhatsApp: ${escapeHtml(client.phone || '-')}</p>
+                    <p>Documento: ${escapeHtml(client.document_id || '-')}</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button data-edit-client="${client.id}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">Editar</button>
+                    <button data-toggle-client="${client.id}" data-next-status="${client.status === 'active' ? 'inactive' : 'active'}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">
+                        ${client.status === 'active' ? 'Inativar' : 'Ativar'}
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function bootstrapWorkspaceContext() {
+        try {
+            await db.upsertMyUserProfile({});
+            await db.acceptPendingInvites();
+            await db.ensureTenantWorkspace(null);
+            workspaceContext = await db.getMyWorkspace();
+
+            if (!workspaceContext?.tenantId) {
+                throw new Error('Usuário sem vínculo de acesso com a empresa.');
+            }
+
+            if (workspaceContextLabel && workspaceContext?.tenantName) {
+                const roleLabel = TENANT_ROLE_LABEL[workspaceContext.role] || workspaceContext.role || 'Membro';
+                workspaceContextLabel.textContent = `${workspaceContext.tenantName} · ${roleLabel}`;
+            }
+            return true;
+        } catch (error) {
+            console.error('Workspace:', error);
+            const errorMsg = String(error?.message || '').toLowerCase();
+            const schemaMissing =
+                errorMsg.includes('could not find the table') ||
+                errorMsg.includes('relation') ||
+                errorMsg.includes('user_profiles') ||
+                errorMsg.includes('tenant_');
+
+            if (schemaMissing) {
+                const currentEmail = String(adminUserData.email || '').toLowerCase();
+                if (currentEmail === MASTER_ADMIN_EMAIL) {
+                    workspaceContext = {
+                        tenantId: null,
+                        role: 'owner',
+                        tenantName: 'NixSign (Modo Legado)'
+                    };
+                    if (workspaceContextLabel) {
+                        workspaceContextLabel.textContent = 'NixSign · Proprietário (modo legado)';
+                    }
+                    return true;
+                }
+            }
+
+            showFeedbackGlobal('Acesso não autorizado para este usuário.', 'error');
+            try { await db.supabase.auth.signOut(); } catch (_) {}
+            setTimeout(() => { window.location.href = 'index.html'; }, 900);
+            return false;
+        }
+    }
+
+    async function carregarGestaoUsuarios() {
+        if (!workspaceContext?.tenantId) {
+            setUsersFeedback('Gestão de usuários/clientes será habilitada após rodar os SQLs de tenant no banco.', 'info');
+            if (tenantUserList) tenantUserList.innerHTML = '<p class="text-sm text-slate-500">Disponível após estruturar tenant_members/user_profiles.</p>';
+            if (tenantInviteList) tenantInviteList.innerHTML = '<p class="text-sm text-slate-500">Disponível após estruturar tenant_invites.</p>';
+            if (tenantClientList) tenantClientList.innerHTML = '<p class="col-span-full text-sm text-slate-500">Disponível após estruturar tenant_clients.</p>';
+            return;
+        }
+
+        setUsersFeedback('Carregando usuários e clientes...', 'info');
+        if (tenantUserList) tenantUserList.innerHTML = '<p class="text-sm text-slate-500">Carregando membros...</p>';
+        if (tenantInviteList) tenantInviteList.innerHTML = '<p class="text-sm text-slate-500">Carregando convites...</p>';
+        if (tenantClientList) tenantClientList.innerHTML = '<p class="col-span-full text-sm text-slate-500">Carregando clientes...</p>';
+
+        try {
+            const [members, invites, clients] = await Promise.all([
+                db.listTenantMembers(workspaceContext.tenantId),
+                db.listTenantInvites(workspaceContext.tenantId),
+                db.listTenantClients(workspaceContext.tenantId),
+            ]);
+
+            usersDataCache = members || [];
+            invitesDataCache = invites || [];
+            clientsDataCache = clients || [];
+
+            const profileIds = [...new Set(usersDataCache.map((member) => member.user_id).filter(Boolean))];
+            const profiles = await db.listUserProfiles(profileIds);
+            const profilesMap = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
+
+            renderTenantUsers(usersDataCache, profilesMap);
+            renderTenantInvites(invitesDataCache);
+            renderTenantClients(clientsDataCache);
+            setUsersFeedback(`Usuários: ${usersDataCache.length} · Convites pendentes: ${invitesDataCache.filter((invite) => invite.status === 'pending').length} · Clientes: ${clientsDataCache.length}`, 'success');
+        } catch (error) {
+            console.error('Gestão usuários:', error);
+            setUsersFeedback(`Erro ao carregar gestão de usuários: ${error.message}`, 'error');
+            if (tenantUserList) tenantUserList.innerHTML = '<p class="text-sm text-red-600">Falha ao carregar membros.</p>';
+        }
+    }
+
+    async function abrirGestaoUsuarios() {
+        if(uploadInitialView) uploadInitialView.style.display = 'none';
+        if(preparationView) preparationView.classList.add('hidden');
+        if(consultationView) consultationView.classList.add('hidden');
+        if(usersView) usersView.classList.remove('hidden');
+        setTopTab('usuarios');
+        await carregarGestaoUsuarios();
+    }
+
     async function carregarDocumentos() {
         if(listLoadingFeedback) listLoadingFeedback.style.display = 'block'; 
         if(documentList) documentList.innerHTML = '';
@@ -366,7 +698,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             allDocumentsData = data || []; totalDocuments = count || 0;
             renderizarLista(allDocumentsData); atualizarControlesPaginacao();
         } catch (error) {
-            if(documentList) documentList.innerHTML = `<p class="text-center text-red-500 py-8">Erro ao carregar documentos: ${error.message}</p>`;
+            if(documentList) documentList.innerHTML = `<p class="col-span-full text-center text-red-500 py-8">Erro ao carregar documentos: ${error.message}</p>`;
             if(pageInfo) pageInfo.textContent = 'Erro';
         } finally { if(listLoadingFeedback) listLoadingFeedback.style.display = 'none'; }
     }
@@ -374,9 +706,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     function renderizarLista(docs) {
         if(!documentList) return;
         documentList.innerHTML = '';
-        if (!docs || docs.length === 0) { documentList.innerHTML = '<p class="text-center text-gray-500 py-8">Nenhum documento encontrado.</p>'; return; }
+        if (!docs || docs.length === 0) { documentList.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">Nenhum documento encontrado.</p>'; return; }
         docs.forEach(doc => {
-            const card = document.createElement('div'); card.className = 'border rounded-lg p-4 bg-gray-50 shadow-sm flex flex-col sm:flex-row justify-between items-start gap-4';
+            const card = document.createElement('div'); card.className = 'border rounded-lg p-4 bg-gray-50 shadow-sm flex flex-col gap-3 h-full';
             const dataEnvio = doc.created_at ? new Date(doc.created_at).toLocaleDateString('pt-BR') : 'Data indisponível';
             let nomeArquivoOriginal = 'Nome indisponível';
             if (doc.caminho_arquivo_storage) { const parts = doc.caminho_arquivo_storage.split('-'); nomeArquivoOriginal = parts.length > 1 ? parts.slice(1).join('-') : doc.caminho_arquivo_storage; }
@@ -386,7 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-800 ws-nowrap">Assinado ✅</span>`;
                 actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline ws-nowrap" data-path="${doc.caminho_arquivo_storage}" title="Original">Original</button> ${doc.caminho_arquivo_assinado ? `<button class="download-btn text-sm text-green-600 hover:underline ws-nowrap" data-path="${doc.caminho_arquivo_assinado}" title="Assinado">Baixar Assinado</button>` : '<span class="text-xs text-gray-400">Ass. s/ PDF</span>'}`;
             } else {
-                statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800 ws-nowrap">Pendente ⏳</span>`;
+                statusHtml = `<span class="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-800 ws-nowrap">Pendente de Assinatura ⏳</span>`;
                 actionsHtml = `<button class="download-btn text-sm text-blue-600 hover:underline ws-nowrap" data-path="${doc.caminho_arquivo_storage}" title="Original">Original</button> <button class="copy-link-btn text-sm text-purple-600 hover:underline ws-nowrap" data-doc-id="${doc.id}" title="Copiar link">Copiar Link</button>`;
             }
             actionsHtml += ` <button class="excluir-btn text-sm text-red-600 hover:underline ws-nowrap" data-doc-id="${doc.id}" title="Excluir">Excluir</button>`;
@@ -394,7 +726,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const tipoDocLabel = doc.tipo_documento === 'contrato' ? 'Contrato' : (doc.tipo_documento === 'proposta_pedido' ? 'Proposta/Pedido' : (doc.tipo_documento === 'pedido' ? 'Pedido' : (doc.tipo_documento === 'proposta' ? 'Proposta' : 'O.S.')));
             const numeroExibido = doc.n_os && doc.n_os !== 'S/N' ? doc.n_os : '';
 
-            card.innerHTML = `<div class="flex-grow min-w-0 pr-4"><p class="font-semibold text-gray-800 break-words">${nomeArquivoOriginal}</p><p class="text-sm text-gray-500 truncate mt-1">${doc.nome_cliente || 'Cliente N/A'}</p><div class="flex gap-2 mt-1"><span class="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">${tipoDocLabel} ${numeroExibido}</span></div></div><div class="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-end gap-3"><div class="flex flex-col items-start sm:items-end text-right gap-1">${statusHtml}${doc.status_os ? `<span class="text-xs font-semibold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full ws-nowrap" title="Status OS">${doc.status_os}</span>` : ''}<span class="text-xs text-gray-500 ws-nowrap">Enviado: ${dataEnvio}</span></div><div class="flex flex-wrap gap-x-3 gap-y-1 justify-start sm:justify-end mt-2 sm:mt-0">${actionsHtml}</div></div>`;
+            card.innerHTML = `<div class="min-w-0"><p class="font-semibold text-gray-800 break-words">${nomeArquivoOriginal}</p><p class="text-sm text-gray-500 truncate mt-1">${doc.nome_cliente || 'Cliente N/A'}</p><div class="flex gap-2 mt-1"><span class="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100">${tipoDocLabel} ${numeroExibido}</span></div></div><div class="flex flex-col gap-1"><div class="flex flex-wrap gap-2">${statusHtml}</div><div class="flex flex-wrap gap-x-3 gap-y-1">${actionsHtml}</div><span class="text-xs text-gray-500 ws-nowrap">Enviado: ${dataEnvio}</span></div>`;
             documentList.appendChild(card);
         });
     }
@@ -443,6 +775,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(skipTecnicoCheckbox) skipTecnicoCheckbox.addEventListener('change', applyCheckboxLogic);
     if(skipClienteCheckbox) skipClienteCheckbox.addEventListener('change', applyCheckboxLogic);
     if(useDefaultAreasCheckbox) useDefaultAreasCheckbox.addEventListener('change', applyCheckboxLogic);
+    document.querySelectorAll('input[name="tipo_documento"]').forEach((inputEl) => {
+        inputEl.addEventListener('change', () => {
+            if (useDefaultAreasCheckbox?.checked) {
+                calculateAndApplyDefaultRects();
+                updateInstructionText();
+                redrawAll();
+            }
+        });
+    });
     
     if (btnCopiarLink && linkInput) {
         btnCopiarLink.addEventListener('click', () => {
@@ -482,8 +823,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         uploadForm.addEventListener('submit', async (event) => {
             event.preventDefault(); 
             setLoading(true);
-            
-            const adminIp = await getMyIp();
             
             if (!currentFile) { showFeedback("Nenhum PDF.", "error"); setLoading(false); return; }
             
@@ -553,15 +892,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     cliente_assinatura_coords: cliCoords,
                     admin_id: adminUserData.id,
                     admin_email: adminUserData.email,
+                    tenant_id: workspaceContext?.tenantId || null,
                     tipo_documento: tipoDocumento,
-                    admin_ip: adminIp
+                    site_base_url: SITE_BASE_URL
                 };
 
                 const insertData = await db.saveDocumentData(record);
-                const link = `${SITE_BASE_URL}/assinar.html?id=${insertData.id}`;
+                const link = insertData.link_assinatura || `${SITE_BASE_URL}/assinar.html?id=${insertData.id}`;
                 
                 if(linkInput) linkInput.value = link;
-                await db.updateDocumentLink(insertData.id, link);
+                if (!insertData.link_assinatura) {
+                    await db.updateDocumentLink(insertData.id, link);
+                }
                 
                 if(actionsContainer) actionsContainer.classList.remove('hidden');
                 if(whatsappContainer) whatsappContainer.style.display = clienteTelefoneInput?.value ? 'block' : 'none';
@@ -570,7 +912,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             } catch (err) { 
                 console.error('Erro submit:', err); 
-                showFeedback(`Erro: ${err.message}`, 'error'); 
+                const errMsg = String(err?.message || err || '');
+                if (errMsg.toLowerCase().includes('edge function') || errMsg.toLowerCase().includes('failed to send a request')) {
+                    showFeedback('Falha na função segura de criação. Em produção, faça deploy da edge function "criar-documento-seguro".', 'error');
+                } else {
+                    showFeedback(`Erro: ${errMsg}`, 'error');
+                }
             } finally { setLoading(false); }
         });
     }
@@ -581,6 +928,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(uploadInitialView) uploadInitialView.style.display = 'none';
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.remove('hidden');
+        if(usersView) usersView.classList.add('hidden');
         setTopTab('consulta');
         carregarDocumentos();
     });
@@ -591,15 +939,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(uploadInitialView) uploadInitialView.style.display = 'none';
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.remove('hidden');
+        if(usersView) usersView.classList.add('hidden');
         setTopTab('consulta');
         carregarDocumentos();
+    });
+    if(showUsersBtn) showUsersBtn.addEventListener('click', () => {
+        abrirGestaoUsuarios();
     });
     if(backToInit) backToInit.addEventListener('click', resetPreparationView);
     
     if(refreshListBtn) refreshListBtn.addEventListener('click', carregarDocumentos);
+    if(refreshUsersBtn) refreshUsersBtn.addEventListener('click', carregarGestaoUsuarios);
     
     if(statusFilterButtons) {
         statusFilterButtons.addEventListener('click', (e) => { 
+            if (!(e.target instanceof Element)) return;
             const targetButton = e.target.closest('button'); 
             if (targetButton && targetButton.dataset.status) { 
                 currentPage = 0; 
@@ -636,6 +990,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if(documentList) {
         documentList.addEventListener('click', async (e) => { 
+            if (!(e.target instanceof Element)) return;
             const target = e.target; 
             if (target.classList.contains('download-btn') && target.dataset.path) { 
                 try { 
@@ -656,5 +1011,187 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (inviteUserForm) {
+        inviteUserForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!workspaceContext?.tenantId) {
+                setUsersFeedback('Workspace não identificado.', 'error');
+                return;
+            }
+
+            try {
+                const email = String(inviteEmailInput?.value || '').trim().toLowerCase();
+                const invitedName = String(inviteNameInput?.value || '').trim();
+                const role = String(inviteRoleSelect?.value || 'member');
+                if (!email) throw new Error('Informe um e-mail válido.');
+
+                await db.createTenantInvite({
+                    tenantId: workspaceContext.tenantId,
+                    email,
+                    invitedName: invitedName || null,
+                    role
+                });
+
+                if (inviteUserForm) inviteUserForm.reset();
+                setUsersFeedback('Convite gerado com sucesso.', 'success');
+                await carregarGestaoUsuarios();
+            } catch (error) {
+                setUsersFeedback(`Erro ao criar convite: ${error.message}`, 'error');
+            }
+        });
+    }
+
+    if (tenantUserList) {
+        tenantUserList.addEventListener('click', async (event) => {
+            if (!(event.target instanceof Element)) return;
+            const target = event.target;
+            const roleSaveBtn = target.closest('[data-member-role-save]');
+            const toggleStatusBtn = target.closest('[data-member-toggle-status]');
+
+            try {
+                if (roleSaveBtn) {
+                    const memberId = roleSaveBtn.getAttribute('data-member-role-save');
+                    if (!memberId) return;
+                    const roleSelect = tenantUserList.querySelector(`[data-member-role-select="${memberId}"]`);
+                    const newRole = roleSelect ? roleSelect.value : null;
+                    if (!newRole) return;
+                    await db.updateTenantMember(memberId, { role: newRole });
+                    setUsersFeedback('Perfil atualizado.', 'success');
+                    await carregarGestaoUsuarios();
+                    return;
+                }
+
+                if (toggleStatusBtn) {
+                    const memberId = toggleStatusBtn.getAttribute('data-member-toggle-status');
+                    const nextStatus = String(toggleStatusBtn.getAttribute('data-next-status') || '');
+                    if (!memberId || !nextStatus) return;
+                    await db.updateTenantMember(memberId, { status: nextStatus });
+                    setUsersFeedback('Status do usuário atualizado.', 'success');
+                    await carregarGestaoUsuarios();
+                }
+            } catch (error) {
+                setUsersFeedback(`Erro ao atualizar usuário: ${error.message}`, 'error');
+            }
+        });
+    }
+
+    if (tenantInviteList) {
+        tenantInviteList.addEventListener('click', async (event) => {
+            if (!(event.target instanceof Element)) return;
+            const revokeBtn = event.target.closest('[data-revoke-invite]');
+            if (!revokeBtn) return;
+            const inviteId = revokeBtn.getAttribute('data-revoke-invite');
+            if (!inviteId) return;
+            try {
+                await db.revokeTenantInvite(inviteId);
+                setUsersFeedback('Convite revogado.', 'success');
+                await carregarGestaoUsuarios();
+            } catch (error) {
+                setUsersFeedback(`Erro ao revogar convite: ${error.message}`, 'error');
+            }
+        });
+    }
+
+    if (clientFormResetBtn) {
+        clientFormResetBtn.addEventListener('click', clearClientForm);
+    }
+
+    if (clientForm) {
+        clientForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!workspaceContext?.tenantId) {
+                setUsersFeedback('Workspace não identificado.', 'error');
+                return;
+            }
+
+            try {
+                const payload = {
+                    id: clientIdInput?.value || null,
+                    tenant_id: workspaceContext.tenantId,
+                    display_name: String(clientNameInput?.value || '').trim(),
+                    email: String(clientEmailInput?.value || '').trim().toLowerCase() || null,
+                    phone: String(clientPhoneInput?.value || '').trim() || null,
+                    document_id: String(clientDocumentInput?.value || '').trim() || null,
+                    notes: String(clientNotesInput?.value || '').trim() || null,
+                    created_by: adminUserData.id || null,
+                    status: 'active'
+                };
+
+                if (!payload.display_name) throw new Error('Nome do cliente é obrigatório.');
+
+                await db.upsertTenantClient(payload);
+                clearClientForm();
+                setUsersFeedback('Cliente salvo com sucesso.', 'success');
+                await carregarGestaoUsuarios();
+            } catch (error) {
+                setUsersFeedback(`Erro ao salvar cliente: ${error.message}`, 'error');
+            }
+        });
+    }
+
+    if (tenantClientList) {
+        tenantClientList.addEventListener('click', async (event) => {
+            if (!(event.target instanceof Element)) return;
+            const editBtn = event.target.closest('[data-edit-client]');
+            const toggleBtn = event.target.closest('[data-toggle-client]');
+
+            if (editBtn) {
+                const clientId = editBtn.getAttribute('data-edit-client');
+                const client = clientsDataCache.find((item) => item.id === clientId);
+                if (!client) return;
+                if (clientIdInput) clientIdInput.value = client.id;
+                if (clientNameInput) clientNameInput.value = client.display_name || '';
+                if (clientEmailInput) clientEmailInput.value = client.email || '';
+                if (clientPhoneInput) clientPhoneInput.value = client.phone || '';
+                if (clientDocumentInput) clientDocumentInput.value = client.document_id || '';
+                if (clientNotesInput) clientNotesInput.value = client.notes || '';
+                setUsersFeedback('Cliente carregado para edição.', 'info');
+                return;
+            }
+
+            if (toggleBtn) {
+                const clientId = toggleBtn.getAttribute('data-toggle-client');
+                const nextStatus = toggleBtn.getAttribute('data-next-status');
+                if (!clientId || !nextStatus) return;
+
+                try {
+                    await db.setTenantClientStatus(clientId, nextStatus);
+                    setUsersFeedback('Status do cliente atualizado.', 'success');
+                    await carregarGestaoUsuarios();
+                } catch (error) {
+                    setUsersFeedback(`Erro ao atualizar cliente: ${error.message}`, 'error');
+                }
+            }
+        });
+    }
+
+    if (accountPasswordForm) {
+        accountPasswordForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            try {
+                const newPassword = String(accountNewPasswordInput?.value || '');
+                const newPasswordConfirm = String(accountNewPasswordConfirmInput?.value || '');
+
+                if (newPassword.length < 6) {
+                    throw new Error('A nova senha deve ter ao menos 6 caracteres.');
+                }
+                if (newPassword !== newPasswordConfirm) {
+                    throw new Error('As senhas não conferem.');
+                }
+
+                const { error } = await db.supabase.auth.updateUser({ password: newPassword });
+                if (error) throw error;
+
+                if (accountNewPasswordInput) accountNewPasswordInput.value = '';
+                if (accountNewPasswordConfirmInput) accountNewPasswordConfirmInput.value = '';
+                setUsersFeedback('Senha atualizada com sucesso.', 'success');
+            } catch (error) {
+                setUsersFeedback(`Erro ao atualizar senha: ${error.message}`, 'error');
+            }
+        });
+    }
+
+    const workspaceReady = await bootstrapWorkspaceContext();
+    if (!workspaceReady) return;
     setTopTab('novo');
 });

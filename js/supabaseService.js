@@ -15,7 +15,7 @@ export async function getDocuments(page, itemsPerPage, filter, searchTerm) {
             id, created_at, status, cliente_email, nome_cliente, n_os, status_os, 
             caminho_arquivo_storage, caminho_arquivo_assinado, link_assinatura, erp_link,
             admin_id, admin_email, tipo_documento,
-            assinaturas ( nome_signatario, cpf_cnpj_signatario, email_signatario, assinado_em, imagem_assinatura_base64, data_hora_local, google_user_id, ip_signatario )
+            assinaturas ( nome_signatario, cpf_cnpj_signatario, email_signatario, assinado_em, data_hora_local, google_user_id, ip_signatario )
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(from, to);
@@ -57,8 +57,21 @@ export async function getNextContractNumber() {
 }
 
 export async function saveDocumentData(documentData) {
-    const { data, error } = await supabase.from('documentos').insert(documentData).select('id').single();
-    if (error) throw error;
+    const { data, error } = await supabase.functions.invoke('criar-documento-seguro', {
+        body: documentData
+    });
+    if (error) {
+        const isLocalDev = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        if (isLocalDev) {
+            console.warn('[LGPD fallback local] criar-documento-seguro indisponível, usando insert legado somente para desenvolvimento local.');
+            const legacyDoc = { ...documentData };
+            delete legacyDoc.site_base_url;
+            const { data: legacyData, error: legacyError } = await supabase.from('documentos').insert(legacyDoc).select('id').single();
+            if (legacyError) throw legacyError;
+            return legacyData;
+        }
+        throw error;
+    }
     return data;
 }
 
@@ -83,6 +96,221 @@ export async function deleteDocument(docId) {
     // Depois apaga o documento principal
     const { error: docError } = await supabase.from('documentos').delete().eq('id', docId);
     if (docError) throw docError;
+}
+
+// --- FUNÇÕES DE WORKSPACE / USUÁRIOS / CLIENTES ---
+
+export async function ensureTenantWorkspace(displayName = null) {
+    const { data, error } = await supabase.rpc('ensure_personal_tenant', {
+        p_display_name: displayName,
+    });
+    if (error) throw error;
+    return data;
+}
+
+export async function acceptPendingInvites() {
+    const { data, error } = await supabase.rpc('accept_pending_invites');
+    if (error) throw error;
+    return data;
+}
+
+export async function getMyWorkspace() {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    const user = authData?.user;
+    if (!user) return null;
+
+    const { data, error } = await supabase
+        .from('tenant_members')
+        .select(`
+            id,
+            tenant_id,
+            role,
+            status,
+            tenants (
+                id,
+                slug,
+                display_name,
+                status
+            )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    const tenant = data.tenants || {};
+    return {
+        membershipId: data.id,
+        tenantId: data.tenant_id,
+        role: data.role,
+        tenantName: tenant.display_name || 'Workspace',
+        tenantSlug: tenant.slug || '',
+        tenantStatus: tenant.status || 'active',
+    };
+}
+
+export async function upsertMyUserProfile(profileData = {}) {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+    const user = authData?.user;
+    if (!user) throw new Error('Usuário não autenticado.');
+
+    const payload = {
+        user_id: user.id,
+        email: (profileData.email || user.email || '').toLowerCase(),
+        full_name: profileData.full_name || user.user_metadata?.full_name || null,
+        phone: profileData.phone || null,
+        avatar_url: profileData.avatar_url || user.user_metadata?.avatar_url || null,
+        is_active: true,
+    };
+
+    const { data, error } = await supabase
+        .from('user_profiles')
+        .upsert(payload, { onConflict: 'user_id' })
+        .select('*')
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function listTenantMembers(tenantId) {
+    const { data, error } = await supabase
+        .from('tenant_members')
+        .select('id, tenant_id, user_id, role, status, created_at, updated_at')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+export async function listUserProfiles(userIds) {
+    if (!Array.isArray(userIds) || userIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from('user_profiles')
+        .select('user_id, email, full_name, phone, avatar_url, is_active')
+        .in('user_id', userIds);
+    if (error) throw error;
+    return data || [];
+}
+
+export async function updateTenantMember(memberId, patch) {
+    const { data, error } = await supabase
+        .from('tenant_members')
+        .update(patch)
+        .eq('id', memberId)
+        .select('id, tenant_id, user_id, role, status, updated_at')
+        .single();
+    if (error) throw error;
+    return data;
+}
+
+export async function listTenantInvites(tenantId) {
+    const { data, error } = await supabase
+        .from('tenant_invites')
+        .select('id, tenant_id, email, invited_name, role, status, expires_at, created_at')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+}
+
+export async function createTenantInvite({ tenantId, email, role = 'member', invitedName = null, expiresAt = null }) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) throw new Error('E-mail é obrigatório para convite.');
+
+    const allowedRoles = ['owner', 'admin', 'manager', 'member', 'billing'];
+    const safeRole = allowedRoles.includes(role) ? role : 'member';
+    const token = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID().replace(/-/g, '')
+        : `${Date.now()}${Math.random().toString(16).slice(2)}`;
+    const defaultExpiry = new Date(Date.now() + (1000 * 60 * 60 * 24 * 7)).toISOString(); // +7 dias
+
+    const { data, error } = await supabase
+        .from('tenant_invites')
+        .insert({
+            tenant_id: tenantId,
+            email: normalizedEmail,
+            invited_name: invitedName,
+            role: safeRole,
+            token,
+            status: 'pending',
+            expires_at: expiresAt || defaultExpiry,
+        })
+        .select('id, email, role, status, expires_at, created_at')
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function revokeTenantInvite(inviteId) {
+    const { data, error } = await supabase
+        .from('tenant_invites')
+        .update({ status: 'revoked' })
+        .eq('id', inviteId)
+        .select('id, status')
+        .single();
+    if (error) throw error;
+    return data;
+}
+
+export async function listTenantClients(tenantId) {
+    const { data, error } = await supabase
+        .from('tenant_clients')
+        .select('id, tenant_id, display_name, email, phone, document_id, notes, status, created_at, updated_at')
+        .eq('tenant_id', tenantId)
+        .order('display_name', { ascending: true });
+    if (error) throw error;
+    return data || [];
+}
+
+export async function upsertTenantClient(clientData) {
+    const payload = {
+        tenant_id: clientData.tenant_id,
+        display_name: clientData.display_name,
+        email: clientData.email || null,
+        phone: clientData.phone || null,
+        document_id: clientData.document_id || null,
+        notes: clientData.notes || null,
+        status: clientData.status || 'active',
+        created_by: clientData.created_by || null,
+    };
+
+    if (clientData.id) {
+        const { data, error } = await supabase
+            .from('tenant_clients')
+            .update(payload)
+            .eq('id', clientData.id)
+            .select('*')
+            .single();
+        if (error) throw error;
+        return data;
+    }
+
+    const { data, error } = await supabase
+        .from('tenant_clients')
+        .insert(payload)
+        .select('*')
+        .single();
+    if (error) throw error;
+    return data;
+}
+
+export async function setTenantClientStatus(clientId, status) {
+    const { data, error } = await supabase
+        .from('tenant_clients')
+        .update({ status })
+        .eq('id', clientId)
+        .select('id, status')
+        .single();
+    if (error) throw error;
+    return data;
 }
 
 export function getPublicUrl(path) {

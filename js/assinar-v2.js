@@ -269,24 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
  		initializeSignaturePad();
  	}
 
-    async function redirectToCorrectGoogleAccount(rawMessage = '') {
-        const currentEmail = currentUser?.email || userEmailInput?.value || '';
-        try {
-            await db.supabase.auth.signOut();
-        } catch (signOutError) {
-            console.warn('Falha ao encerrar sessão para troca de conta:', signOutError);
-        }
-
-        currentUser = null;
-        showView('login-step');
-        if (loginError) {
-            loginError.textContent = currentEmail
-                ? `Você estava logado como ${currentEmail}. Faça login com o e-mail que recebeu o link de assinatura.`
-                : 'Faça login com o e-mail que recebeu o link de assinatura.';
-        }
-
-        openErrorModal(rawMessage || 'Este link está vinculado a outro e-mail de assinatura. Faça login com a conta Google correta.');
-    }
  	
  	async function handleSignatureSubmit(event) {
  		event.preventDefault();
@@ -342,12 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
  		} catch (error) {
  			console.error("Erro submit:", error); 
             const errorMessage = String(error?.message || 'Falha ao concluir assinatura.');
-            const isEmailMismatch = errorMessage.toLowerCase().includes('link está vinculado a outro e-mail');
-            if (isEmailMismatch) {
-                await redirectToCorrectGoogleAccount(errorMessage);
-            } else {
- 			    openErrorModal(`Erro ao salvar: ${errorMessage}`);
-            }
+ 			openErrorModal(`Erro ao salvar: ${errorMessage}`);
  			submitSignatureBtn.disabled = false;
  			submitSignatureBtn.textContent = 'Assinar e Finalizar';
  		} 

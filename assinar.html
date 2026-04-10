@@ -113,9 +113,9 @@
             margin-inline: auto;
             text-align: left;
             border-radius: 18px;
-            border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--border));
+            border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--border));
             background: color-mix(in srgb, var(--surface-strong) 96%, transparent);
-            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
             overflow: hidden;
         }
         .google-login-head {
@@ -132,11 +132,12 @@
             border-radius: 999px;
             display: grid;
             place-items: center;
-            background: radial-gradient(circle at 35% 30%, #fff, #eef4ff 72%);
+            background: radial-gradient(circle at 35% 30%, #fff, #f3f7ff 72%);
             border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--border));
-            font-weight: 700;
-            font-size: 34px;
-            color: #4285f4;
+        }
+        .google-login-logo svg {
+            width: 30px;
+            height: 30px;
         }
         .google-login-body {
             padding: 16px 20px;
@@ -157,12 +158,14 @@
             width: 40px;
             height: 40px;
             border-radius: 999px;
-            background: linear-gradient(145deg, #d9e8ff, #a9c8ff);
+            background: radial-gradient(circle at 35% 30%, #fff, #eef4ff 75%);
             display: grid;
             place-items: center;
-            color: #1d4ed8;
-            font-size: 14px;
-            font-weight: 700;
+            border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--border));
+        }
+        .google-avatar svg {
+            width: 19px;
+            height: 19px;
         }
         .google-login-actions {
             padding: 14px 20px 18px;
@@ -182,9 +185,23 @@
             font-weight: 600;
         }
         .google-action-btn--primary {
-            background: linear-gradient(120deg, #48b95f, #2f8f43);
-            border-color: rgba(35, 120, 55, 0.55);
+            background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 92%, #ffffff), color-mix(in srgb, var(--brand-dark) 88%, #ffffff));
+            border-color: color-mix(in srgb, var(--brand) 42%, var(--border));
             color: #fff;
+        }
+        .google-action-btn--primary .btn-google-icon {
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: #fff;
+            display: inline-grid;
+            place-items: center;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        .google-action-btn--primary .btn-google-icon svg {
+            width: 12px;
+            height: 12px;
         }
         .workflow-btn {
             width: auto;
@@ -289,12 +306,26 @@
 
         <div id="login-step" class="google-login-shell">
             <div class="google-login-head">
-                <div class="google-login-logo">G</div>
+                <div class="google-login-logo" aria-hidden="true">
+                    <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="#EA4335" d="M24 9.5c3.2 0 6.1 1.1 8.4 3.2l6.3-6.3C34.9 2.8 29.8 1 24 1 14.6 1 6.4 6.4 2.4 14.3l7.4 5.8C11.9 13.8 17.5 9.5 24 9.5z"/>
+                        <path fill="#4285F4" d="M46.5 24.6c0-1.7-.2-3.3-.5-4.8H24v9.1h12.6c-.5 2.9-2.2 5.3-4.7 6.9l7.2 5.6c4.2-3.9 7.4-9.7 7.4-16.8z"/>
+                        <path fill="#FBBC05" d="M9.8 28.1c-.5-1.4-.8-2.7-.8-4.1s.3-2.7.8-4.1l-7.4-5.8C.8 17.1 0 20.5 0 24s.8 6.9 2.4 9.9l7.4-5.8z"/>
+                        <path fill="#34A853" d="M24 47c5.8 0 10.9-1.9 14.5-5.3l-7.2-5.6c-2 1.4-4.6 2.3-7.3 2.3-6.5 0-12.1-4.3-14.2-10.6l-7.4 5.8C6.4 41.6 14.6 47 24 47z"/>
+                    </svg>
+                </div>
                 <h2 class="text-xl font-bold" style="color: var(--text);">Fazer login em <span id="oauth-hostname">nixsign.vercel.app</span> com google.com</h2>
             </div>
             <div class="google-login-body">
                 <div class="google-account-preview">
-                    <div class="google-avatar">G</div>
+                    <div class="google-avatar" aria-hidden="true">
+                        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#EA4335" d="M24 9.5c3.2 0 6.1 1.1 8.4 3.2l6.3-6.3C34.9 2.8 29.8 1 24 1 14.6 1 6.4 6.4 2.4 14.3l7.4 5.8C11.9 13.8 17.5 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.5 24.6c0-1.7-.2-3.3-.5-4.8H24v9.1h12.6c-.5 2.9-2.2 5.3-4.7 6.9l7.2 5.6c4.2-3.9 7.4-9.7 7.4-16.8z"/>
+                            <path fill="#FBBC05" d="M9.8 28.1c-.5-1.4-.8-2.7-.8-4.1s.3-2.7.8-4.1l-7.4-5.8C.8 17.1 0 20.5 0 24s.8 6.9 2.4 9.9l7.4-5.8z"/>
+                            <path fill="#34A853" d="M24 47c5.8 0 10.9-1.9 14.5-5.3l-7.2-5.6c-2 1.4-4.6 2.3-7.3 2.3-6.5 0-12.1-4.3-14.2-10.6l-7.4 5.8C6.4 41.6 14.6 47 24 47z"/>
+                        </svg>
+                    </div>
                     <div>
                         <p class="text-sm font-semibold" style="color: var(--text);">Conta Google</p>
                         <p class="text-xs" style="color: var(--text-soft);">Use sua conta para validar identidade e assinatura.</p>
@@ -309,6 +340,14 @@
             <div class="google-login-actions">
                 <a href="index.html" class="google-action-btn inline-flex items-center justify-center">Voltar</a>
                 <button id="google-login-btn" class="google-action-btn google-action-btn--primary inline-flex items-center justify-center">
+                    <span class="btn-google-icon" aria-hidden="true">
+                        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#EA4335" d="M24 9.5c3.2 0 6.1 1.1 8.4 3.2l6.3-6.3C34.9 2.8 29.8 1 24 1 14.6 1 6.4 6.4 2.4 14.3l7.4 5.8C11.9 13.8 17.5 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.5 24.6c0-1.7-.2-3.3-.5-4.8H24v9.1h12.6c-.5 2.9-2.2 5.3-4.7 6.9l7.2 5.6c4.2-3.9 7.4-9.7 7.4-16.8z"/>
+                            <path fill="#FBBC05" d="M9.8 28.1c-.5-1.4-.8-2.7-.8-4.1s.3-2.7.8-4.1l-7.4-5.8C.8 17.1 0 20.5 0 24s.8 6.9 2.4 9.9l7.4-5.8z"/>
+                            <path fill="#34A853" d="M24 47c5.8 0 10.9-1.9 14.5-5.3l-7.2-5.6c-2 1.4-4.6 2.3-7.3 2.3-6.5 0-12.1-4.3-14.2-10.6l-7.4 5.8C6.4 41.6 14.6 47 24 47z"/>
+                        </svg>
+                    </span>
                     Continuar com Google
                 </button>
             </div>

@@ -54,6 +54,12 @@ function isMissingColumnError(error: unknown): boolean {
   return message.includes('column') && message.includes('does not exist');
 }
 
+function isTrueEnv(value: string | undefined, fallback = false): boolean {
+  if (value == null) return fallback;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: buildCorsHeaders(req) });
   if (req.method !== 'POST') return jsonResponse(req, 405, { error: 'Método não permitido.' });
@@ -193,9 +199,12 @@ serve(async (req) => {
       return jsonResponse(req, 409, { error: 'Documento já assinado.' });
     }
 
-    // Se houver e-mail de destinatário definido, só ele pode assinar
+    // Modo flexível: por padrão, não bloqueia assinatura por e-mail diferente.
+    // Se quiser endurecer depois, definir ENFORCE_SIGNER_EMAIL_MATCH=true na function.
     const emailClienteDocumento = String((docData as Record<string, unknown>).cliente_email ?? '').trim().toLowerCase();
-    if (emailClienteDocumento && emailClienteDocumento !== emailAutenticado) {
+    const enforceEmailMatch = isTrueEnv(Deno.env.get('ENFORCE_SIGNER_EMAIL_MATCH'), false);
+    const signerEmailMismatch = Boolean(emailClienteDocumento && emailClienteDocumento !== emailAutenticado);
+    if (enforceEmailMatch && signerEmailMismatch) {
       return jsonResponse(req, 403, { error: 'Este link está vinculado a outro e-mail de assinatura.' });
     }
 
@@ -312,6 +321,9 @@ serve(async (req) => {
       legal_basis: legalBasis,
       treatment_purpose: treatmentPurpose,
       payload_email: emailSignatarioPayload || null,
+      document_recipient_email: emailClienteDocumento || null,
+      signer_email_mismatch: signerEmailMismatch,
+      signer_email_match_enforced: enforceEmailMatch,
       signed_at_iso: signedAt.toISOString(),
       signed_at_br: dataHoraServidorBR,
     };

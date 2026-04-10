@@ -125,6 +125,8 @@ function normalizeSiteBaseUrl(value: unknown): string {
   }
 }
 
+const MASTER_ADMIN_EMAIL = 'altnixtecnologia@gmail.com';
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: buildCorsHeaders(req) });
   if (req.method !== 'POST') return jsonResponse(req, 405, { error: 'Método não permitido.' });
@@ -229,8 +231,9 @@ serve(async (req) => {
       }
     }
 
-    if (tenantSchemaAvailable && !tenantIdForDocument) {
-      return jsonResponse(req, 403, { error: 'Usuário sem acesso a uma empresa ativa.' });
+    const isLegacyMaster = adminEmail === MASTER_ADMIN_EMAIL;
+    if (tenantSchemaAvailable && !tenantIdForDocument && !isLegacyMaster) {
+      return jsonResponse(req, 403, { error: 'Usuário sem acesso a uma empresa ativa. Solicite convite ou vínculo de tenant.' });
     }
 
     // 3) Inserção segura

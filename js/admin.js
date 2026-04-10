@@ -611,12 +611,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function bootstrapWorkspaceContext() {
         try {
-            await db.upsertMyUserProfile({});
-            await db.acceptPendingInvites();
-            await db.ensureTenantWorkspace(null);
+            try {
+                await db.upsertMyUserProfile({});
+            } catch (profileError) {
+                console.warn('Workspace profile (non-blocking):', profileError);
+            }
+
+            try {
+                await db.acceptPendingInvites();
+            } catch (inviteError) {
+                console.warn('Workspace invites (non-blocking):', inviteError);
+            }
+
+            try {
+                await db.ensureTenantWorkspace(null);
+            } catch (ensureError) {
+                console.warn('Workspace ensure (non-blocking):', ensureError);
+            }
             workspaceContext = await db.getMyWorkspace();
 
             if (!workspaceContext?.tenantId) {
+                const currentEmail = String(adminUserData.email || '').toLowerCase();
+                if (currentEmail === MASTER_ADMIN_EMAIL) {
+                    workspaceContext = {
+                        tenantId: null,
+                        role: 'owner',
+                        tenantName: 'NixSign (Modo Legado)'
+                    };
+                    updateLoggedUserLabel('Proprietário');
+                    return true;
+                }
                 throw new Error('Usuário sem vínculo de acesso com a empresa.');
             }
 

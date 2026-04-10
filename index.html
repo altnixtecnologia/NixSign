@@ -125,8 +125,9 @@
             margin-bottom: 0;
             color: var(--text-soft);
             font-size: clamp(16px, 2.2vw, 20px);
-            max-width: 62ch;
+            max-width: none;
             line-height: 1.5;
+            white-space: nowrap;
         }
         .preload-hero {
             display: grid;
@@ -571,7 +572,6 @@
                 Acesso ao painel para emissão de links, auditoria e acompanhamento de assinaturas.
             </p>
             <div class="session-row mt-4">
-                <span class="version-chip">Versão <strong id="app-version-label">v2026.04.09</strong></span>
                 <button id="session-logout-btn" type="button" class="entry-btn-ghost entry-action session-logout hidden">
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path d="M10 17l5-5-5-5"/>

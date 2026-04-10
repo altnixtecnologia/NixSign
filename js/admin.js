@@ -157,8 +157,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const uploadInitialView = document.getElementById('initial-view');
     const showConsultationBtn = document.getElementById('show-consultation-btn');
     const showUsersBtn = document.getElementById('show-users-btn');
+    const showSettingsBtn = document.getElementById('show-settings-btn');
     const preparationView = document.getElementById('preparation-view');
     const usersView = document.getElementById('users-view');
+    const settingsView = document.getElementById('settings-view');
     const cancelPreparationBtn = document.getElementById('cancel-preparation-btn');
     const loggedUserLabel = document.getElementById('logged-user-label');
     const panelVersionLabel = document.getElementById('panel-version-label');
@@ -342,6 +344,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (backToInitialViewBtn) backToInitialViewBtn.classList.toggle('tab-active', tab === 'novo');
         if (showConsultationBtn) showConsultationBtn.classList.toggle('tab-active', tab === 'consulta');
         if (showUsersBtn) showUsersBtn.classList.toggle('tab-active', tab === 'usuarios');
+        if (showSettingsBtn) showSettingsBtn.classList.toggle('tab-active', tab === 'configuracoes');
     }
 
     function resetPreparationView() {
@@ -350,6 +353,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.add('hidden');
         if(usersView) usersView.classList.add('hidden');
+        if(settingsView) settingsView.classList.add('hidden');
         setTopTab('novo');
 
         if(osFileInput) osFileInput.value = '';
@@ -377,6 +381,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(workspacePanel) workspacePanel.classList.remove('hidden');
         if(preparationView) preparationView.classList.remove('hidden');
         if(consultationView) consultationView.classList.add('hidden');
+        if(usersView) usersView.classList.add('hidden');
+        if(settingsView) settingsView.classList.add('hidden');
         setTopTab('novo');
         
         showFeedback('Carregando PDF...', 'info'); 
@@ -803,7 +809,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.add('hidden');
         if(usersView) usersView.classList.remove('hidden');
+        if(settingsView) settingsView.classList.add('hidden');
         setTopTab('usuarios');
+        await carregarGestaoUsuarios();
+    }
+
+    async function abrirConfiguracoes() {
+        if(uploadInitialView) uploadInitialView.style.display = 'none';
+        if(workspacePanel) workspacePanel.classList.remove('hidden');
+        if(preparationView) preparationView.classList.add('hidden');
+        if(consultationView) consultationView.classList.add('hidden');
+        if(usersView) usersView.classList.add('hidden');
+        if(settingsView) settingsView.classList.remove('hidden');
+        setTopTab('configuracoes');
         await carregarGestaoUsuarios();
     }
 
@@ -1060,25 +1078,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.remove('hidden');
         if(usersView) usersView.classList.add('hidden');
+        if(settingsView) settingsView.classList.add('hidden');
         setTopTab('consulta');
         carregarDocumentos();
     });
 
-    const showConsultation = document.getElementById('show-consultation-btn');
-    const backToInit = document.getElementById('back-to-initial-view-btn');
-    if(showConsultation) showConsultation.addEventListener('click', () => {
+    if(showConsultationBtn) showConsultationBtn.addEventListener('click', () => {
         if(uploadInitialView) uploadInitialView.style.display = 'none';
         if(workspacePanel) workspacePanel.classList.remove('hidden');
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.remove('hidden');
         if(usersView) usersView.classList.add('hidden');
+        if(settingsView) settingsView.classList.add('hidden');
         setTopTab('consulta');
         carregarDocumentos();
     });
     if(showUsersBtn) showUsersBtn.addEventListener('click', () => {
         abrirGestaoUsuarios();
     });
-    if(backToInit) backToInit.addEventListener('click', resetPreparationView);
+    if(showSettingsBtn) showSettingsBtn.addEventListener('click', () => {
+        abrirConfiguracoes();
+    });
+    if(backToInitialViewBtn) backToInitialViewBtn.addEventListener('click', resetPreparationView);
     
     if(refreshListBtn) refreshListBtn.addEventListener('click', carregarDocumentos);
     if(refreshUsersBtn) refreshUsersBtn.addEventListener('click', carregarGestaoUsuarios);

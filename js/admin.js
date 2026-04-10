@@ -43,6 +43,7 @@ const TENANT_ROLE_LABEL = {
 };
 
 const MASTER_ADMIN_EMAIL = 'altnixtecnologia@gmail.com';
+const PANEL_APP_VERSION = 'v.26.04';
 
 // --- ESTADO GLOBAL ---
 let adminUserData = { id: null, email: null }; 
@@ -151,13 +152,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // --- DECLARAÇÃO DE TODOS OS ELEMENTOS ---
     const osFileInput = document.getElementById('os-file');
+    const pickPdfBtn = document.getElementById('pick-pdf-btn');
+    const workspacePanel = document.querySelector('main.workspace');
     const uploadInitialView = document.getElementById('initial-view');
     const showConsultationBtn = document.getElementById('show-consultation-btn');
     const showUsersBtn = document.getElementById('show-users-btn');
     const preparationView = document.getElementById('preparation-view');
     const usersView = document.getElementById('users-view');
     const cancelPreparationBtn = document.getElementById('cancel-preparation-btn');
-    const workspaceContextLabel = document.getElementById('workspace-context-label');
+    const loggedUserLabel = document.getElementById('logged-user-label');
+    const panelVersionLabel = document.getElementById('panel-version-label');
+    const topLogoutBtn = document.getElementById('top-logout-btn');
     const instructionText = document.getElementById('instruction-text');
     const resetDrawingBtn = document.getElementById('reset-drawing-btn');
     const pdfPreviewWrapper = document.getElementById('pdf-preview-wrapper');
@@ -246,6 +251,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     let invitesDataCache = [];
     let clientsDataCache = [];
 
+    if (panelVersionLabel) {
+        panelVersionLabel.textContent = PANEL_APP_VERSION;
+    }
+
+    function updateLoggedUserLabel(roleLabel = null) {
+        if (!loggedUserLabel) return;
+        const email = String(adminUserData.email || 'usuario@empresa.com.br');
+        loggedUserLabel.textContent = roleLabel ? `${email} · ${roleLabel}` : email;
+    }
+
+    updateLoggedUserLabel();
+
     // --- Funções Internas ---
     function showFeedback(message, type = 'info') {
         if(!feedbackMessage) return;
@@ -267,6 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function resetPreparationView() {
         if(uploadInitialView) uploadInitialView.style.display = 'block';
+        if(workspacePanel) workspacePanel.classList.add('hidden');
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.add('hidden');
         if(usersView) usersView.classList.add('hidden');
@@ -294,6 +312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function preparePdfAndData(pdfSource) {
         if(uploadInitialView) uploadInitialView.style.display = 'none';
+        if(workspacePanel) workspacePanel.classList.remove('hidden');
         if(preparationView) preparationView.classList.remove('hidden');
         if(consultationView) consultationView.classList.add('hidden');
         setTopTab('novo');
@@ -601,10 +620,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error('Usuário sem vínculo de acesso com a empresa.');
             }
 
-            if (workspaceContextLabel && workspaceContext?.tenantName) {
-                const roleLabel = TENANT_ROLE_LABEL[workspaceContext.role] || workspaceContext.role || 'Membro';
-                workspaceContextLabel.textContent = `${workspaceContext.tenantName} · ${roleLabel}`;
-            }
+            const roleLabel = TENANT_ROLE_LABEL[workspaceContext.role] || workspaceContext.role || 'Membro';
+            updateLoggedUserLabel(roleLabel);
             return true;
         } catch (error) {
             console.error('Workspace:', error);
@@ -623,9 +640,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         role: 'owner',
                         tenantName: 'NixSign (Modo Legado)'
                     };
-                    if (workspaceContextLabel) {
-                        workspaceContextLabel.textContent = 'NixSign · Proprietário (modo legado)';
-                    }
+                    updateLoggedUserLabel('Proprietário');
                     return true;
                 }
             }
@@ -679,6 +694,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function abrirGestaoUsuarios() {
         if(uploadInitialView) uploadInitialView.style.display = 'none';
+        if(workspacePanel) workspacePanel.classList.remove('hidden');
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.add('hidden');
         if(usersView) usersView.classList.remove('hidden');
@@ -810,12 +826,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const newFile = await addWhitespaceToPdf(file);
                     currentFile = newFile;
                     await preparePdfAndData(newFile);
+                    if (pickPdfBtn) {
+                        pickPdfBtn.classList.remove('is-loaded');
+                        void pickPdfBtn.offsetWidth;
+                        pickPdfBtn.classList.add('is-loaded');
+                        setTimeout(() => pickPdfBtn.classList.remove('is-loaded'), 700);
+                    }
                 } catch (err) {
                     console.error(err);
                     showFeedback("Erro ao processar PDF.", "error");
                 }
             }
         });
+    }
+    if (pickPdfBtn && osFileInput) {
+        pickPdfBtn.addEventListener('click', () => osFileInput.click());
     }
 
     // Upload Submit
@@ -926,6 +951,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(navToNewBtn) navToNewBtn.addEventListener('click', resetPreparationView);
     if(navToConsultBtn) navToConsultBtn.addEventListener('click', () => {
         if(uploadInitialView) uploadInitialView.style.display = 'none';
+        if(workspacePanel) workspacePanel.classList.remove('hidden');
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.remove('hidden');
         if(usersView) usersView.classList.add('hidden');
@@ -937,6 +963,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const backToInit = document.getElementById('back-to-initial-view-btn');
     if(showConsultation) showConsultation.addEventListener('click', () => {
         if(uploadInitialView) uploadInitialView.style.display = 'none';
+        if(workspacePanel) workspacePanel.classList.remove('hidden');
         if(preparationView) preparationView.classList.add('hidden');
         if(consultationView) consultationView.classList.remove('hidden');
         if(usersView) usersView.classList.add('hidden');
@@ -1191,7 +1218,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (topLogoutBtn) {
+        topLogoutBtn.addEventListener('click', async () => {
+            try {
+                await db.supabase.auth.signOut();
+            } catch (_) {
+                // no-op: seguimos para a tela de login mesmo em falha de rede local.
+            }
+            window.location.href = 'index.html';
+        });
+    }
+
     const workspaceReady = await bootstrapWorkspaceContext();
     if (!workspaceReady) return;
-    setTopTab('novo');
+    resetPreparationView();
 });

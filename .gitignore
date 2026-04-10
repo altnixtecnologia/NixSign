@@ -5,3 +5,5 @@
 
 # Backup dumps
 supabase/sql/backups/*.sql
+
+.vercel

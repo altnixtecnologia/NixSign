@@ -179,6 +179,45 @@ export async function upsertMyUserProfile(profileData = {}) {
     return data;
 }
 
+export async function getTenantBranding(tenantId) {
+    const { data, error } = await supabase
+        .from('tenant_branding')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+    if (error) throw error;
+    return data;
+}
+
+export async function upsertTenantBranding(brandingData) {
+    const payload = {
+        tenant_id: brandingData.tenant_id,
+        company_display_name: brandingData.company_display_name || null,
+        company_legal_name: brandingData.company_legal_name || null,
+        company_tax_id: brandingData.company_tax_id || null,
+        primary_email: brandingData.primary_email || null,
+        secondary_email: brandingData.secondary_email || null,
+        logo_public_url: brandingData.logo_public_url || null,
+        watermark_enabled: brandingData.watermark_enabled !== false,
+        watermark_mode: brandingData.watermark_mode || 'logo',
+        watermark_image_url: brandingData.watermark_image_url || null,
+        watermark_text: brandingData.watermark_text || null,
+        watermark_opacity: brandingData.watermark_opacity ?? 0.15,
+        watermark_scale: brandingData.watermark_scale ?? 0.3,
+        company_google_numeric_id: brandingData.company_google_numeric_id || null,
+        signature_company_label: brandingData.signature_company_label || 'Assinatura da empresa',
+        signature_client_label: brandingData.signature_client_label || 'Assinatura do cliente',
+    };
+
+    const { data, error } = await supabase
+        .from('tenant_branding')
+        .upsert(payload, { onConflict: 'tenant_id' })
+        .select('*')
+        .single();
+    if (error) throw error;
+    return data;
+}
+
 export async function listTenantMembers(tenantId) {
     const { data, error } = await supabase
         .from('tenant_members')
@@ -351,6 +390,18 @@ export async function submitSignature(signatureData) {
     const { data, error } = await supabase.functions.invoke('salvar-assinatura', {
         body: signatureData,
     });
-    if (error) throw error;
+    if (error) {
+        let message = error.message || 'Falha ao enviar assinatura.';
+        try {
+            const response = error.context;
+            if (response && typeof response.json === 'function') {
+                const payload = await response.json();
+                if (payload?.error) message = String(payload.error);
+            }
+        } catch (_) {
+            // mantém a mensagem padrão caso não seja possível ler o body da resposta
+        }
+        throw new Error(message);
+    }
     return data;
 }

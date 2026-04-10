@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Admin - NixSign</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/nixsign-logo.svg">
+    <link rel="apple-touch-icon" href="./assets/nixsign-logo.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
@@ -39,47 +44,83 @@
             margin: 0;
             font-family: 'Inter', 'Segoe UI', sans-serif;
             background:
-                radial-gradient(circle at 92% 2%, rgba(37, 99, 235, 0.14), transparent 34%),
-                linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 38%),
+                radial-gradient(circle at 8% 0%, rgba(37, 99, 235, 0.15), transparent 30%),
+                radial-gradient(circle at 92% 100%, rgba(14, 165, 233, 0.12), transparent 34%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 40%),
                 var(--bg);
             color: var(--ink);
+        }
+        .panel-topbar {
+            border: 1px solid var(--line-strong);
+            border-radius: 18px;
+            background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+            backdrop-filter: blur(8px);
+            padding: 14px 16px;
+        }
+        .panel-topbar-grid {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) auto minmax(100px, 1fr);
+            align-items: center;
+            gap: 10px;
         }
         .workspace {
             border: 1px solid var(--line-strong);
             background: var(--surface-strong);
-            border-radius: 0 14px 14px 14px;
+            border-radius: 16px;
             min-height: calc(100vh - 190px);
             box-shadow: var(--shadow);
             backdrop-filter: blur(8px);
         }
+        .panel-nav-wrap {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--line);
+            display: grid;
+            gap: 8px;
+        }
         .tabs {
             display: flex;
-            align-items: flex-end;
-            gap: 6px;
+            align-items: center;
+            gap: 8px;
             overflow-x: auto;
-            padding-bottom: 2px;
+            padding: 4px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: color-mix(in srgb, var(--surface) 90%, transparent);
         }
         .tabs::-webkit-scrollbar { height: 6px; }
         .tabs::-webkit-scrollbar-thumb { background: #c3d3e8; border-radius: 999px; }
         .browser-tab {
-            border: 1px solid var(--line-strong);
-            border-bottom: none;
-            border-radius: 12px 12px 0 0;
-            padding: 10px 16px;
-            background: color-mix(in srgb, var(--surface-strong) 86%, transparent);
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 9px 12px;
+            background: transparent;
             color: var(--ink-soft);
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 600;
             line-height: 1;
             white-space: nowrap;
             transition: 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
-        .browser-tab:hover { background: color-mix(in srgb, var(--brand) 8%, var(--surface-strong)); }
-        .browser-tab.tab-active {
-            background: var(--surface-strong);
+        .browser-tab svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+        .browser-tab:hover {
+            border-color: color-mix(in srgb, var(--brand) 36%, var(--line-strong));
             color: var(--ink);
-            font-weight: 600;
-            transform: translateY(1px);
-            box-shadow: inset 0 -2px 0 var(--brand);
+            background: color-mix(in srgb, var(--brand) 11%, var(--surface-strong));
+        }
+        .browser-tab.tab-active {
+            background: color-mix(in srgb, var(--surface-strong) 95%, transparent);
+            color: var(--ink);
+            border-color: color-mix(in srgb, var(--brand) 44%, var(--line-strong));
+            box-shadow: inset 0 -2px 0 var(--brand), 0 4px 12px rgba(15, 23, 42, 0.07);
         }
         .modal { display: none; }
         .modal.active { display: flex !important; }
@@ -92,47 +133,286 @@
             background: var(--surface-strong);
             box-shadow: var(--shadow);
         }
+        .panel-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .panel-brand-logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--line));
+            background: #fff;
+            box-shadow: 0 8px 18px rgba(14, 36, 76, 0.14);
+        }
+        .nixsign-wordmark {
+            font-family: 'Space Grotesk', 'Inter', 'Segoe UI', sans-serif;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .panel-meta {
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .panel-user-center {
+            display: flex;
+            justify-content: center;
+        }
+        .logged-user-chip {
+            border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--line));
+            background: color-mix(in srgb, var(--surface-strong) 90%, transparent);
+            border-radius: 999px;
+            padding: 6px 10px;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+            color: var(--ink-soft);
+            font-size: 12px;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .panel-logout-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid var(--line-strong);
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
+            color: var(--ink-soft);
+            padding: 7px 10px;
+            font-size: 12px;
+            line-height: 1;
+            transition: 0.18s ease;
+        }
+        .panel-logout-btn:hover {
+            border-color: color-mix(in srgb, var(--brand) 50%, var(--line-strong));
+            color: var(--ink);
+            background: color-mix(in srgb, var(--brand) 12%, var(--surface-strong));
+        }
+        .panel-logout-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+        .panel-version-compact {
+            font-size: 11px;
+            line-height: 1;
+            color: var(--ink-soft);
+            letter-spacing: 0.03em;
+            text-transform: lowercase;
+            opacity: 0.9;
+        }
+        #initial-view {
+            margin-bottom: 12px;
+        }
+        .quick-upload-bar {
+            border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--line));
+            border-radius: 14px;
+            background: color-mix(in srgb, var(--surface-strong) 92%, transparent);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .quick-upload-copy {
+            font-size: 13px;
+            color: var(--ink-soft);
+            line-height: 1.3;
+        }
+        .quick-upload-copy strong {
+            display: block;
+            color: var(--ink);
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        .quick-upload-bar .cont {
+            width: min(280px, 100%);
+        }
+        .quick-upload-bar .btn {
+            position: relative;
+            width: 100%;
+            height: 50px;
+            border-radius: 999px;
+            border: 2px solid color-mix(in srgb, var(--brand) 46%, var(--line));
+            background: linear-gradient(160deg, color-mix(in srgb, var(--brand) 14%, white), color-mix(in srgb, var(--surface-strong) 98%, transparent));
+            color: color-mix(in srgb, var(--brand-dark) 78%, var(--ink));
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+            overflow: hidden;
+        }
+        .quick-upload-bar .btn:hover {
+            transform: translateY(-1px);
+            border-color: color-mix(in srgb, var(--brand) 60%, var(--line));
+            box-shadow: 0 10px 20px color-mix(in srgb, var(--brand) 26%, transparent);
+        }
+        .quick-upload-bar .btn > span {
+            position: relative;
+            z-index: 2;
+            transition: opacity .45s ease;
+        }
+        .quick-upload-bar .btn > img {
+            position: absolute;
+            inset: 0;
+            margin: auto;
+            width: 22px;
+            height: 22px;
+            opacity: 0;
+            z-index: 2;
+            transition: opacity .45s ease;
+        }
+        .quick-upload-bar .btn:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 22%, transparent);
+        }
+        .quick-upload-bar .btn.is-loaded {
+            animation: extend .55s ease-in-out;
+        }
+        .quick-upload-bar .btn.is-loaded > span {
+            animation: disappear .55s ease-in-out;
+        }
+        .quick-upload-bar .btn.is-loaded > img {
+            animation: appear .55s ease-in-out;
+        }
+        @keyframes extend {
+            0% { transform: scale(1); }
+            10% { transform: scale(1.02); }
+            20% { transform: scale(1); }
+            100% { transform: scale(1); }
+        }
+        @keyframes disappear {
+            0% { opacity: 1; }
+            70% { opacity: 0.35; }
+            100% { opacity: 1; }
+        }
+        @keyframes appear {
+            0% { opacity: 0; }
+            60% { opacity: 0.85; }
+            100% { opacity: 0; }
+        }
+        @media (max-width: 768px) {
+            .panel-topbar {
+                padding: 12px;
+            }
+            .panel-topbar-grid {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .panel-brand-logo {
+                width: 38px;
+                height: 38px;
+            }
+            .panel-user-center {
+                justify-content: flex-start;
+            }
+            .panel-meta {
+                justify-content: flex-start;
+                align-items: flex-start;
+            }
+            .workspace {
+                min-height: calc(100vh - 230px);
+            }
+            .quick-upload-bar {
+                padding: 10px;
+            }
+            .quick-upload-copy strong {
+                font-size: 13px;
+            }
+            .quick-upload-copy {
+                font-size: 12px;
+            }
+            .quick-upload-bar .cont {
+                width: 100%;
+            }
+            .quick-upload-bar .btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen p-3 sm:p-5">
     <div class="mx-auto w-full max-w-7xl">
-        <header class="mb-3">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <p class="text-xs uppercase tracking-wide text-slate-500">NixSign</p>
+        <header class="panel-topbar mb-3">
+            <div class="panel-topbar-grid">
+                <div class="panel-brand">
+                    <img src="./assets/nixsign-logo.svg" alt="Logo NixSign" class="panel-brand-logo">
+                    <div>
+                    <p class="text-xs tracking-wide text-slate-500 nixsign-wordmark">NixSign</p>
                     <h1 class="text-2xl sm:text-3xl font-bold text-[var(--ink)]">Painel de Assinaturas</h1>
+                    </div>
                 </div>
-                <div class="text-xs sm:text-sm text-[var(--ink-soft)]">
-                    <span id="workspace-context-label">Ambiente Profissional · Desktop e Mobile</span>
+                <div class="panel-user-center">
+                    <span id="logged-user-label" class="logged-user-chip">usuário@empresa.com.br</span>
                 </div>
+                <div class="panel-meta">
+                    <button id="top-logout-btn" type="button" class="panel-logout-btn" title="Encerrar sessão">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M10 17l5-5-5-5"/>
+                            <path d="M15 12H3"/>
+                            <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/>
+                        </svg>
+                        <span>Sair</span>
+                    </button>
+                    <span id="panel-version-label" class="panel-version-compact">v.26.04</span>
+                </div> 
+            </div>
+            <div class="panel-nav-wrap">
+                <nav class="tabs" aria-label="Navegação principal">
+                    <button id="back-to-initial-view-btn" class="browser-tab tab-active" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M12 5v14"/>
+                            <path d="M5 12h14"/>
+                        </svg>
+                        <span>Novo Documento</span>
+                    </button>
+                    <button id="show-consultation-btn" class="browser-tab" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7"/>
+                            <path d="M20 20l-3.2-3.2"/>
+                        </svg>
+                        <span>Consultar</span>
+                    </button>
+                    <button id="show-users-btn" class="browser-tab" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="3"/>
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a3 3 0 0 1 0 5.74"/>
+                        </svg>
+                        <span>Usuários</span>
+                    </button>
+                </nav>
             </div>
         </header>
 
-        <nav class="tabs">
-            <button id="back-to-initial-view-btn" class="browser-tab tab-active" type="button">Novo Documento</button>
-            <button id="show-consultation-btn" class="browser-tab" type="button">Consultar</button>
-            <button id="show-users-btn" class="browser-tab" type="button">Usuários</button>
-        </nav>
+        <section id="initial-view">
+            <div class="quick-upload-bar">
+                <p class="quick-upload-copy">
+                    <strong>Novo Documento</strong>
+                    Envie o PDF para iniciar a assinatura.
+                </p>
+                <div class="cont">
+                    <button id="pick-pdf-btn" type="button" class="btn">
+                        <span>Selecionar PDF</span>
+                        <img alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E">
+                    </button>
+                    <input type="file" id="os-file" class="hidden" accept="application/pdf">
+                </div>
+            </div>
+        </section>
 
         <main class="workspace p-4 sm:p-6">
-            <section id="initial-view">
-                <div class="border border-dashed border-slate-300 rounded-xl p-6 sm:p-8 bg-slate-50/50">
-                    <h2 class="text-xl font-semibold">Novo Documento</h2>
-                    <p class="mt-1 text-sm text-[var(--ink-soft)]">
-                        Faça upload do PDF para iniciar o fluxo de assinatura.
-                    </p>
-                    <div class="mt-6">
-                        <label for="os-file" class="cursor-pointer bg-[var(--brand)] text-white font-semibold py-3 px-5 rounded-lg hover:bg-[var(--brand-dark)] inline-flex items-center justify-center">
-                            Selecionar Arquivo PDF
-                        </label>
-                        <input type="file" id="os-file" class="hidden" accept="application/pdf">
-                    </div>
-                    <p class="mt-4 text-xs text-slate-500">
-                        Importação por link do ERP foi desativada neste layout.
-                    </p>
-                </div>
-            </section>
-
             <section id="preparation-view" class="hidden">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                     <div>

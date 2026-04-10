@@ -4,6 +4,8 @@ import { setupPdfWorker } from './pdfHandler.js';
 setupPdfWorker();
 
 document.addEventListener('DOMContentLoaded', () => {
+    const DEFAULT_SIGNER_NAME = 'Altnix Tecnologia';
+    const DEFAULT_SIGNER_EMAIL = 'altnixtecnologia@gmail.com';
     const LGPD_CONSENT_VERSION = 'nixsign-lgpd-v1-2026-04-09';
     const LGPD_LEGAL_BASIS = 'execucao_de_contrato_e_exercicio_regular_de_direitos';
     const LGPD_TREATMENT_PURPOSE = 'assinatura_eletronica_documental';
@@ -62,9 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSubmitAvailability() {
         const canSubmit = documentoAceito && !!lgpdConsentCheckbox?.checked;
         submitSignatureBtn.disabled = !canSubmit;
-        submitSignatureBtn.classList.toggle('opacity-50', !canSubmit);
-        submitSignatureBtn.classList.toggle('cursor-not-allowed', !canSubmit);
-        submitSignatureBtn.classList.toggle('hover:bg-green-700', canSubmit);
+        submitSignatureBtn.classList.toggle('is-ready', canSubmit);
     }
 
  	// --- Controle de Visão ---
@@ -127,8 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
  		documentoAceito = true;
  		btnAbrirPdf.textContent = '✅ Documento Verificado e Aceito';
  		btnAbrirPdf.disabled = true;
- 		btnAbrirPdf.classList.add('bg-green-600', 'opacity-70');
- 		btnAbrirPdf.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+ 		btnAbrirPdf.classList.add('is-done');
 
  		userCpfInput.disabled = false;
  		userCpfInput.placeholder = 'Digite seu CPF ou CNPJ';
@@ -263,8 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
  	
  	async function setupSigningView(user) {
  		currentUser = user;
- 		userNameInput.value = user.user_metadata.full_name || '';
- 		userEmailInput.value = user.email || '';
+ 		userNameInput.value = user.user_metadata.full_name || DEFAULT_SIGNER_NAME;
+ 		userEmailInput.value = user.email || DEFAULT_SIGNER_EMAIL;
  		showView('signing-step');
  		initializeSignaturePad();
  	}
@@ -302,8 +301,8 @@ document.addEventListener('DOMContentLoaded', () => {
   			
   			await db.submitSignature({
   				documento_id: currentDocumentId,
-  				nome_signatario: currentUser.user_metadata.full_name,
-  				email_signatario: currentUser.email,
+ 				nome_signatario: userNameInput.value,
+ 				email_signatario: userEmailInput.value,
   				cpf_cnpj_signatario: userCpfInput.value,
   				imagem_assinatura_base64: signatureImage,
   				data_hora_local: dataHoraLocalFormatada,

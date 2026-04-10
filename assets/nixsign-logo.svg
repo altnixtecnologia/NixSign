@@ -1,0 +1,31 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ns-bg" x1="16" y1="14" x2="112" y2="114" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1C56F6"/>
+      <stop offset="1" stop-color="#0E8AA0"/>
+    </linearGradient>
+    <linearGradient id="ns-diag" x1="40" y1="30" x2="76" y2="94" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D9F4FF"/>
+      <stop offset="1" stop-color="#8EE7CF"/>
+    </linearGradient>
+    <linearGradient id="ns-seal" x1="84" y1="74" x2="104" y2="102" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A2F2FF"/>
+      <stop offset="1" stop-color="#7BE2BC"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="12" y="12" width="104" height="104" rx="28" fill="url(#ns-bg)"/>
+  <rect x="12" y="12" width="104" height="104" rx="28" stroke="rgba(255,255,255,0.24)" stroke-width="2"/>
+
+  <!-- Documento (dobradura discreta) -->
+  <path d="M88 24H102L108 30V44" stroke="rgba(224,244,255,0.62)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Monograma N (NIX) -->
+  <rect x="28" y="30" width="12" height="68" rx="4.5" fill="#F4FAFF"/>
+  <rect x="68" y="30" width="12" height="68" rx="4.5" fill="#F4FAFF"/>
+  <path d="M40 31.5L68 96.5H57L29.5 31.5H40Z" fill="url(#ns-diag)"/>
+
+  <!-- Selo de assinatura -->
+  <circle cx="92" cy="88" r="12" fill="url(#ns-seal)"/>
+  <path d="M86.5 88.4L90.2 92L97.8 84.3" stroke="#0B3B45" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

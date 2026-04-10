@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assinatura de Documento - Altnix</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/nixsign-logo.svg">
+    <link rel="apple-touch-icon" href="./assets/nixsign-logo.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
@@ -66,6 +71,42 @@
             border-left: 3px solid color-mix(in srgb, var(--brand) 55%, var(--border));
             box-shadow: var(--shadow);
             backdrop-filter: blur(8px);
+        }
+        .brand-head {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .brand-head img {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--border));
+            background: #fff;
+            box-shadow: 0 8px 18px rgba(14, 36, 76, 0.14);
+        }
+        .nixsign-wordmark {
+            font-family: 'Space Grotesk', 'Inter', 'Segoe UI', sans-serif;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .signer-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .signer-field {
+            min-width: 0;
+        }
+        .signer-field input {
+            min-height: 44px;
+        }
+        @media (max-width: 900px) {
+            .signer-grid {
+                grid-template-columns: 1fr;
+            }
         }
         .google-login-shell {
             max-width: 560px;
@@ -145,6 +186,85 @@
             border-color: rgba(35, 120, 55, 0.55);
             color: #fff;
         }
+        .workflow-btn {
+            width: auto;
+            min-height: 40px;
+            padding: 0 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            border: 1px solid color-mix(in srgb, var(--brand) 44%, var(--border));
+            background: color-mix(in srgb, var(--surface-strong) 95%, transparent);
+            color: var(--text);
+            font-weight: 700;
+            transition: 0.18s ease;
+            box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--brand) 72%, transparent);
+        }
+        .workflow-btn-submit {
+            margin: 0 auto;
+        }
+        .workflow-btn:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--brand-soft) 26%, var(--surface-strong));
+            border-color: color-mix(in srgb, var(--brand) 56%, var(--border));
+        }
+        .workflow-btn[disabled] {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .workflow-btn.is-ready {
+            background: color-mix(in srgb, var(--brand-soft) 34%, var(--surface-strong));
+            border-color: color-mix(in srgb, var(--brand) 56%, var(--border));
+        }
+        .workflow-btn:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-soft) 70%, transparent), inset 0 -2px 0 color-mix(in srgb, var(--brand) 72%, transparent);
+        }
+        .workflow-btn.is-done {
+            border-color: rgba(35, 120, 55, 0.55);
+            background: color-mix(in srgb, #2f8f43 22%, var(--surface-strong));
+            color: #1f6d34;
+            box-shadow: inset 0 -2px 0 rgba(35, 120, 55, 0.45);
+            cursor: default;
+        }
+        .app-modal-shell {
+            width: 100%;
+            max-width: 500px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            border-left: 3px solid color-mix(in srgb, var(--brand) 55%, var(--border));
+            background: color-mix(in srgb, var(--surface-strong) 96%, transparent);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(8px);
+            padding: 22px;
+            text-align: center;
+        }
+        .app-modal-icon {
+            margin: 0 auto;
+            width: 56px;
+            height: 56px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            border: 1px solid color-mix(in srgb, #dc2626 34%, var(--border));
+            background: color-mix(in srgb, #ef4444 14%, var(--surface-strong));
+            color: #dc2626;
+        }
+        .app-modal-title {
+            margin-top: 12px;
+            font-size: 30px;
+            line-height: 1.1;
+            color: var(--text);
+        }
+        .app-modal-text {
+            margin-top: 8px;
+            color: var(--text-soft);
+            font-size: 16px;
+        }
+        .app-modal-btn-wrap {
+            margin-top: 18px;
+        }
     </style>
 </head>
 <body>
@@ -158,7 +278,10 @@
     <div id="main-content" class="container mx-auto p-3 sm:p-5 max-w-5xl hidden">
         <header class="mb-4 sm:mb-6">
             <div class="glass-card rounded-2xl px-5 py-4 sm:px-6">
-                <p class="text-xs uppercase tracking-wide text-slate-500">NixSign</p>
+                <div class="brand-head">
+                    <img src="./assets/nixsign-logo.svg" alt="Logo NixSign">
+                    <p class="text-xs tracking-wide text-slate-500 nixsign-wordmark">NixSign</p>
+                </div>
                 <h1 class="text-xl sm:text-2xl font-bold" style="color: var(--text);">Assinatura Digital de Documento</h1>
                 <p class="text-sm mt-1" style="color: var(--text-soft);">Revise o documento, valide seus dados e conclua a assinatura.</p>
             </div>
@@ -195,7 +318,7 @@
             <div class="glass-card p-5 sm:p-6 rounded-2xl">
                 <h2 class="text-xl font-bold text-slate-800">Passo 1: Revisão</h2>
                 <p class="text-slate-600 mt-2 mb-4 text-sm sm:text-base">Leia o documento e aceite os termos para habilitar a assinatura.</p>
-                <button id="btnAbrirPdf" class="w-full bg-[var(--brand)] text-white font-semibold py-3 px-6 rounded-lg hover:bg-[var(--brand-dark)] transition">
+                <button id="btnAbrirPdf" class="workflow-btn">
                     Ler e Aceitar o Documento
                 </button>
             </div>
@@ -203,17 +326,19 @@
             <div class="glass-card p-5 sm:p-6 rounded-2xl">
                 <h2 class="text-xl font-bold text-slate-800 mb-4">Passo 2: Assinatura</h2>
                 <form id="signature-form" class="space-y-4">
-                    <div>
-                        <label for="user-name" class="block text-sm font-medium text-slate-700">Nome completo</label>
-                        <input type="text" id="user-name" class="mt-1 block w-full bg-slate-100 p-2.5 border border-slate-300 rounded-lg" readonly>
-                    </div>
-                    <div>
-                        <label for="user-email" class="block text-sm font-medium text-slate-700">E-mail</label>
-                        <input type="email" id="user-email" class="mt-1 block w-full bg-slate-100 p-2.5 border border-slate-300 rounded-lg" readonly>
-                    </div>
-                    <div>
-                        <label for="user-cpf" class="block text-sm font-medium text-slate-700">CPF/CNPJ (Obrigatório)</label>
-                        <input type="text" id="user-cpf" class="mt-1 block w-full p-2.5 border border-slate-300 rounded-lg bg-slate-100 opacity-50 cursor-not-allowed" placeholder="Aceite o documento para habilitar" required disabled>
+                    <div class="signer-grid">
+                        <div class="signer-field">
+                            <label for="user-name" class="block text-sm font-medium text-slate-700">Nome completo</label>
+                            <input type="text" id="user-name" class="mt-1 block w-full bg-slate-100 p-2.5 border border-slate-300 rounded-lg" readonly>
+                        </div>
+                        <div class="signer-field">
+                            <label for="user-email" class="block text-sm font-medium text-slate-700">E-mail</label>
+                            <input type="email" id="user-email" class="mt-1 block w-full bg-slate-100 p-2.5 border border-slate-300 rounded-lg" readonly>
+                        </div>
+                        <div class="signer-field">
+                            <label for="user-cpf" class="block text-sm font-medium text-slate-700">CPF/CNPJ (Obrigatório)</label>
+                            <input type="text" id="user-cpf" class="mt-1 block w-full p-2.5 border border-slate-300 rounded-lg bg-slate-100 opacity-50 cursor-not-allowed" placeholder="Aceite o documento para habilitar" required disabled>
+                        </div>
                     </div>
                     <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
                         <label class="flex items-start gap-2 text-sm text-slate-700">
@@ -234,7 +359,7 @@
                             </button>
                         </div>
                     </div>
-                    <button type="submit" id="submit-signature-btn" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition opacity-50 cursor-not-allowed" disabled>
+                    <button type="submit" id="submit-signature-btn" class="workflow-btn workflow-btn-submit" disabled>
                         Assinar e Finalizar
                     </button>
                 </form>
@@ -260,8 +385,8 @@
                 </div>
             </div>
             <div id="pdf-viewer" class="flex-1 border rounded-lg overflow-auto bg-slate-100"></div>
-            <div class="mt-4 pt-4 border-t">
-                <button type="button" id="btnAceitarDocumento" class="w-full bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition">
+            <div class="mt-4 pt-4 border-t flex justify-center">
+                <button type="button" id="btnAceitarDocumento" class="workflow-btn">
                     Li e Aceito os termos deste documento
                 </button>
             </div>
@@ -269,16 +394,16 @@
     </div>
 
     <div id="modalErro" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 hidden">
-        <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md text-center">
-            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <div class="app-modal-shell">
+            <div class="app-modal-icon">
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </div>
-            <h3 class="mt-4 text-xl font-bold text-slate-800">Verificação falhou</h3>
-            <p id="modalMensagemErro" class="mt-2 text-base text-slate-600">Ocorreu um erro. Tente novamente.</p>
-            <div class="mt-6">
-                <button type="button" id="btnFecharModalErro" class="w-full bg-[var(--brand)] text-white font-semibold py-3 px-6 rounded-lg hover:bg-[var(--brand-dark)] transition">
+            <h3 class="app-modal-title font-bold">Verificação falhou</h3>
+            <p id="modalMensagemErro" class="app-modal-text">Ocorreu um erro. Tente novamente.</p>
+            <div class="app-modal-btn-wrap">
+                <button type="button" id="btnFecharModalErro" class="workflow-btn">
                     Entendido
                 </button>
             </div>

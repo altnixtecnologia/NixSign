@@ -49,6 +49,11 @@ function extractRequesterIp(req: Request): string {
   return 'IP não informado';
 }
 
+function isMissingColumnError(error: unknown): boolean {
+  const message = String((error as { message?: string } | null)?.message ?? '').toLowerCase();
+  return message.includes('column') && message.includes('does not exist');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: buildCorsHeaders(req) });
   if (req.method !== 'POST') return jsonResponse(req, 405, { error: 'Método não permitido.' });
@@ -150,20 +155,46 @@ serve(async (req) => {
     }
 
     // 2) Documento deve existir e ainda estar pendente
-    const { data: docData, error: docError } = await supabaseAdmin
-      .from('documentos')
-      .select('id, status, cliente_email, tenant_id')
-      .eq('id', documentoId)
-      .maybeSingle();
+    let docData: Record<string, unknown> | null = null;
+    let docError: Error | null = null;
+
+    const documentoSelectCandidates = [
+      'id, status, cliente_email, tenant_id',
+      'id, status, cliente_email',
+      'id, status_os, cliente_email, tenant_id',
+      'id, status_os, cliente_email',
+    ];
+
+    for (const selectColumns of documentoSelectCandidates) {
+      const docAttempt = await supabaseAdmin
+        .from('documentos')
+        .select(selectColumns)
+        .eq('id', documentoId)
+        .maybeSingle();
+
+      if (!docAttempt.error) {
+        docData = docAttempt.data as Record<string, unknown> | null;
+        docError = null;
+        break;
+      }
+
+      if (!isMissingColumnError(docAttempt.error)) {
+        docError = docAttempt.error as Error;
+        break;
+      }
+
+      docError = docAttempt.error as Error;
+    }
 
     if (docError) throw new Error(`Falha ao consultar documento: ${docError.message}`);
     if (!docData) return jsonResponse(req, 404, { error: 'Documento não encontrado.' });
-    if (docData.status === 'assinado') {
+    const docStatus = String((docData as Record<string, unknown>).status ?? (docData as Record<string, unknown>).status_os ?? '').toLowerCase();
+    if (docStatus === 'assinado') {
       return jsonResponse(req, 409, { error: 'Documento já assinado.' });
     }
 
     // Se houver e-mail de destinatário definido, só ele pode assinar
-    const emailClienteDocumento = String(docData.cliente_email ?? '').trim().toLowerCase();
+    const emailClienteDocumento = String((docData as Record<string, unknown>).cliente_email ?? '').trim().toLowerCase();
     if (emailClienteDocumento && emailClienteDocumento !== emailAutenticado) {
       return jsonResponse(req, 403, { error: 'Este link está vinculado a outro e-mail de assinatura.' });
     }
@@ -243,10 +274,21 @@ serve(async (req) => {
     }
 
     // 5) Atualiza status do documento
-    const { error: updateError } = await supabaseAdmin
+    let updateError: Error | null = null;
+    const updateStatus = await supabaseAdmin
       .from('documentos')
       .update({ status: 'assinado' })
       .eq('id', documentoId);
+
+    if (updateStatus.error && isMissingColumnError(updateStatus.error)) {
+      const updateStatusOs = await supabaseAdmin
+        .from('documentos')
+        .update({ status_os: 'assinado' })
+        .eq('id', documentoId);
+      updateError = updateStatusOs.error as Error | null;
+    } else {
+      updateError = updateStatus.error as Error | null;
+    }
 
     if (updateError) throw new Error(`Erro ao atualizar status do documento: ${updateError.message}`);
 
@@ -274,10 +316,12 @@ serve(async (req) => {
       signed_at_br: dataHoraServidorBR,
     };
 
+    const docTenantId = (docData as Record<string, unknown>).tenant_id ?? null;
+
     let persistedAudit = false;
     try {
       const { error: auditError } = await supabaseAdmin.from('audit_events').insert({
-        tenant_id: docData.tenant_id ?? null,
+        tenant_id: docTenantId,
         actor_user_id: authUser.id,
         event_type: 'document_signed',
         target_type: 'documentos',

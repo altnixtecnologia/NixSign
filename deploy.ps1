@@ -263,7 +263,8 @@ if (-not $SkipSql) {
         "lgpd_compliance_controls.sql",
         "multitenant_phase1_safe.sql",
         "user_access_and_registry.sql",
-        "tenant_branding_and_watermark.sql"
+        "tenant_branding_and_watermark.sql",
+        "tenant_rls_recursion_hotfix.sql"
     )
 
     foreach ($sql in $sqlOrder) {

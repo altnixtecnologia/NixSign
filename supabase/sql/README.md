@@ -9,6 +9,7 @@ Arquivos atuais:
 - `multitenant_phase1_safe.sql`: estrutura SaaS multi-tenant (não destrutiva).
 - `user_access_and_registry.sql`: login por usuários cadastrados, gestão de membros/convites e cadastro de clientes por tenant.
 - `tenant_branding_and_watermark.sql`: identidade visual por tenant (marca, logo, marca d'água e contatos).
+- `tenant_rls_recursion_hotfix.sql`: hotfix para recursão de policies RLS em `tenant_members` (erro 42P17).
 - `security_hardening.sql`: hardening de segurança (com bloco opcional de RLS).
 - `legal_signature_hardening.sql`: trilha de evidência jurídica para assinaturas e criação de documentos.
 - `lgpd_compliance_controls.sql`: controles LGPD (consentimento, minimização e solicitações de titulares).
@@ -22,6 +23,7 @@ Arquivos atuais:
 5. Executar `multitenant_phase1_safe.sql`.
 6. Executar `user_access_and_registry.sql`.
 7. Executar `tenant_branding_and_watermark.sql`.
+8. Executar `tenant_rls_recursion_hotfix.sql`.
 
 ## Supabase (layout novo) - onde pegar senha/URL do banco
 - No dashboard do projeto, clique em `Connect` (topo da tela) para ver as connection strings.

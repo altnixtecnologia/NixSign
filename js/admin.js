@@ -213,6 +213,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const accountPasswordForm = document.getElementById('account-password-form');
     const accountNewPasswordInput = document.getElementById('account-new-password-input');
     const accountNewPasswordConfirmInput = document.getElementById('account-new-password-confirm-input');
+    const tenantBrandingForm = document.getElementById('tenant-branding-form');
+    const tenantBrandingFeedback = document.getElementById('tenant-branding-feedback');
+    const brandingCompanyDisplayNameInput = document.getElementById('branding-company-display-name');
+    const brandingCompanyLegalNameInput = document.getElementById('branding-company-legal-name');
+    const brandingCompanyTaxIdInput = document.getElementById('branding-company-tax-id');
+    const brandingPrimaryEmailInput = document.getElementById('branding-primary-email');
+    const brandingSecondaryEmailInput = document.getElementById('branding-secondary-email');
+    const brandingLogoPublicUrlInput = document.getElementById('branding-logo-public-url');
+    const brandingWatermarkEnabledInput = document.getElementById('branding-watermark-enabled');
+    const brandingWatermarkModeInput = document.getElementById('branding-watermark-mode');
+    const brandingWatermarkImageUrlInput = document.getElementById('branding-watermark-image-url');
+    const brandingWatermarkTextInput = document.getElementById('branding-watermark-text');
+    const brandingWatermarkOpacityInput = document.getElementById('branding-watermark-opacity');
+    const brandingWatermarkScaleInput = document.getElementById('branding-watermark-scale');
+    const brandingPreviewLine = document.getElementById('branding-preview-line');
 
     // Modais
     const detailsModal = document.getElementById('details-modal');
@@ -250,6 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let usersDataCache = [];
     let invitesDataCache = [];
     let clientsDataCache = [];
+    let brandingDataCache = null;
 
     if (panelVersionLabel) {
         panelVersionLabel.textContent = PANEL_APP_VERSION;
@@ -262,6 +278,52 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     updateLoggedUserLabel();
+
+    function setBrandingFeedback(message, type = 'info') {
+        if (!tenantBrandingFeedback) return;
+        const palette = {
+            info: 'text-slate-500',
+            success: 'text-green-600',
+            error: 'text-red-600'
+        };
+        tenantBrandingFeedback.textContent = message || '';
+        tenantBrandingFeedback.className = `text-sm ${palette[type] || palette.info}`;
+    }
+
+    function updateBrandingPreview() {
+        if (!brandingPreviewLine) return;
+        const modeLabelMap = {
+            logo: 'Logo da empresa',
+            text: 'Somente texto',
+            both: 'Logo + texto',
+            none: 'Sem marca d\'água'
+        };
+        const enabled = brandingWatermarkEnabledInput?.checked !== false;
+        const modeValue = brandingWatermarkModeInput?.value || 'logo';
+        const modeLabel = modeLabelMap[modeValue] || modeValue;
+        const opacity = String(brandingWatermarkOpacityInput?.value || '0.15');
+        const scale = String(brandingWatermarkScaleInput?.value || '0.30');
+        brandingPreviewLine.textContent = enabled
+            ? `Modo: ${modeLabel} · Opacidade: ${opacity} · Escala: ${scale}`
+            : 'Marca d\'água desativada';
+    }
+
+    function applyBrandingForm(data = null) {
+        brandingDataCache = data || null;
+        if (brandingCompanyDisplayNameInput) brandingCompanyDisplayNameInput.value = data?.company_display_name || '';
+        if (brandingCompanyLegalNameInput) brandingCompanyLegalNameInput.value = data?.company_legal_name || '';
+        if (brandingCompanyTaxIdInput) brandingCompanyTaxIdInput.value = data?.company_tax_id || '';
+        if (brandingPrimaryEmailInput) brandingPrimaryEmailInput.value = data?.primary_email || '';
+        if (brandingSecondaryEmailInput) brandingSecondaryEmailInput.value = data?.secondary_email || '';
+        if (brandingLogoPublicUrlInput) brandingLogoPublicUrlInput.value = data?.logo_public_url || '';
+        if (brandingWatermarkEnabledInput) brandingWatermarkEnabledInput.checked = data?.watermark_enabled !== false;
+        if (brandingWatermarkModeInput) brandingWatermarkModeInput.value = data?.watermark_mode || 'logo';
+        if (brandingWatermarkImageUrlInput) brandingWatermarkImageUrlInput.value = data?.watermark_image_url || '';
+        if (brandingWatermarkTextInput) brandingWatermarkTextInput.value = data?.watermark_text || 'DOCUMENTO ASSINADO DIGITALMENTE';
+        if (brandingWatermarkOpacityInput) brandingWatermarkOpacityInput.value = String(data?.watermark_opacity ?? 0.15);
+        if (brandingWatermarkScaleInput) brandingWatermarkScaleInput.value = String(data?.watermark_scale ?? 0.30);
+        updateBrandingPreview();
+    }
 
     // --- Funções Internas ---
     function showFeedback(message, type = 'info') {
@@ -679,22 +741,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function carregarGestaoUsuarios() {
         if (!workspaceContext?.tenantId) {
             setUsersFeedback('Gestão de usuários/clientes será habilitada após rodar os SQLs de tenant no banco.', 'info');
+            setBrandingFeedback('Configurações de marca serão habilitadas após estruturar os SQLs de tenant.', 'info');
             if (tenantUserList) tenantUserList.innerHTML = '<p class="text-sm text-slate-500">Disponível após estruturar tenant_members/user_profiles.</p>';
             if (tenantInviteList) tenantInviteList.innerHTML = '<p class="text-sm text-slate-500">Disponível após estruturar tenant_invites.</p>';
             if (tenantClientList) tenantClientList.innerHTML = '<p class="col-span-full text-sm text-slate-500">Disponível após estruturar tenant_clients.</p>';
+            if (tenantBrandingForm) {
+                Array.from(tenantBrandingForm.elements).forEach((element) => {
+                    const field = element;
+                    if (field && typeof field.disabled !== 'undefined') field.disabled = true;
+                });
+            }
             return;
         }
 
+        if (tenantBrandingForm) {
+            Array.from(tenantBrandingForm.elements).forEach((element) => {
+                const field = element;
+                if (field && typeof field.disabled !== 'undefined') field.disabled = false;
+            });
+        }
+
         setUsersFeedback('Carregando usuários e clientes...', 'info');
+        setBrandingFeedback('Carregando configurações de marca...', 'info');
         if (tenantUserList) tenantUserList.innerHTML = '<p class="text-sm text-slate-500">Carregando membros...</p>';
         if (tenantInviteList) tenantInviteList.innerHTML = '<p class="text-sm text-slate-500">Carregando convites...</p>';
         if (tenantClientList) tenantClientList.innerHTML = '<p class="col-span-full text-sm text-slate-500">Carregando clientes...</p>';
 
         try {
-            const [members, invites, clients] = await Promise.all([
+            const [members, invites, clients, branding] = await Promise.all([
                 db.listTenantMembers(workspaceContext.tenantId),
                 db.listTenantInvites(workspaceContext.tenantId),
                 db.listTenantClients(workspaceContext.tenantId),
+                db.getTenantBranding(workspaceContext.tenantId),
             ]);
 
             usersDataCache = members || [];
@@ -708,10 +786,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderTenantUsers(usersDataCache, profilesMap);
             renderTenantInvites(invitesDataCache);
             renderTenantClients(clientsDataCache);
+            applyBrandingForm(branding);
             setUsersFeedback(`Usuários: ${usersDataCache.length} · Convites pendentes: ${invitesDataCache.filter((invite) => invite.status === 'pending').length} · Clientes: ${clientsDataCache.length}`, 'success');
+            setBrandingFeedback('Configurações prontas para edição.', 'success');
         } catch (error) {
             console.error('Gestão usuários:', error);
             setUsersFeedback(`Erro ao carregar gestão de usuários: ${error.message}`, 'error');
+            setBrandingFeedback(`Erro ao carregar configurações de marca: ${error.message}`, 'error');
             if (tenantUserList) tenantUserList.innerHTML = '<p class="text-sm text-red-600">Falha ao carregar membros.</p>';
         }
     }
@@ -1239,6 +1320,56 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (error) {
                 setUsersFeedback(`Erro ao atualizar senha: ${error.message}`, 'error');
             }
+        });
+    }
+
+    if (tenantBrandingForm) {
+        tenantBrandingForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!workspaceContext?.tenantId) {
+                setBrandingFeedback('Empresa não identificada para salvar branding.', 'error');
+                return;
+            }
+
+            try {
+                const payload = {
+                    tenant_id: workspaceContext.tenantId,
+                    company_display_name: String(brandingCompanyDisplayNameInput?.value || '').trim() || null,
+                    company_legal_name: String(brandingCompanyLegalNameInput?.value || '').trim() || null,
+                    company_tax_id: String(brandingCompanyTaxIdInput?.value || '').trim() || null,
+                    primary_email: String(brandingPrimaryEmailInput?.value || '').trim().toLowerCase() || null,
+                    secondary_email: String(brandingSecondaryEmailInput?.value || '').trim().toLowerCase() || null,
+                    logo_public_url: String(brandingLogoPublicUrlInput?.value || '').trim() || null,
+                    watermark_enabled: brandingWatermarkEnabledInput?.checked !== false,
+                    watermark_mode: String(brandingWatermarkModeInput?.value || 'logo'),
+                    watermark_image_url: String(brandingWatermarkImageUrlInput?.value || '').trim() || null,
+                    watermark_text: String(brandingWatermarkTextInput?.value || '').trim() || null,
+                    watermark_opacity: Number(brandingWatermarkOpacityInput?.value || 0.15),
+                    watermark_scale: Number(brandingWatermarkScaleInput?.value || 0.3),
+                    company_google_numeric_id: brandingDataCache?.company_google_numeric_id || null,
+                    signature_company_label: brandingDataCache?.signature_company_label || 'Assinatura da empresa',
+                    signature_client_label: brandingDataCache?.signature_client_label || 'Assinatura do cliente'
+                };
+
+                payload.watermark_opacity = Math.min(0.5, Math.max(0.05, Number.isFinite(payload.watermark_opacity) ? payload.watermark_opacity : 0.15));
+                payload.watermark_scale = Math.min(1.0, Math.max(0.10, Number.isFinite(payload.watermark_scale) ? payload.watermark_scale : 0.30));
+
+                const saved = await db.upsertTenantBranding(payload);
+                applyBrandingForm(saved);
+                setBrandingFeedback('Configurações de marca salvas com sucesso.', 'success');
+            } catch (error) {
+                setBrandingFeedback(`Erro ao salvar branding: ${error.message}`, 'error');
+            }
+        });
+
+        [
+            brandingWatermarkEnabledInput,
+            brandingWatermarkModeInput,
+            brandingWatermarkOpacityInput,
+            brandingWatermarkScaleInput
+        ].forEach((element) => {
+            if (element) element.addEventListener('input', updateBrandingPreview);
+            if (element) element.addEventListener('change', updateBrandingPreview);
         });
     }
 

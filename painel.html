@@ -632,6 +632,85 @@
                         </div>
                     </form>
                 </div>
+
+                <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+                    <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Marca e Assinatura</h3>
+                    <p class="text-sm text-[var(--ink-soft)]">
+                        Personalize a identidade da sua empresa nos documentos assinados (marca d'água, logo e dados do selo).
+                    </p>
+                    <div id="tenant-branding-feedback" class="text-sm text-slate-500"></div>
+
+                    <form id="tenant-branding-form" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div>
+                            <label for="branding-company-display-name" class="block text-sm font-medium">Nome da Marca</label>
+                            <input id="branding-company-display-name" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="NixSign">
+                        </div>
+                        <div>
+                            <label for="branding-company-legal-name" class="block text-sm font-medium">Razão Social</label>
+                            <input id="branding-company-legal-name" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Altnix Tecnologia LTDA">
+                        </div>
+                        <div>
+                            <label for="branding-company-tax-id" class="block text-sm font-medium">CNPJ/CPF da Empresa</label>
+                            <input id="branding-company-tax-id" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="00.000.000/0001-00">
+                        </div>
+                        <div>
+                            <label for="branding-primary-email" class="block text-sm font-medium">E-mail Principal</label>
+                            <input id="branding-primary-email" type="email" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="contato@empresa.com.br">
+                        </div>
+                        <div>
+                            <label for="branding-secondary-email" class="block text-sm font-medium">E-mail Secundário</label>
+                            <input id="branding-secondary-email" type="email" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="suporte@empresa.com.br">
+                        </div>
+                        <div>
+                            <label for="branding-logo-public-url" class="block text-sm font-medium">URL da Logo</label>
+                            <input id="branding-logo-public-url" type="url" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="https://.../logo.png">
+                        </div>
+
+                        <div>
+                            <label for="branding-watermark-mode" class="block text-sm font-medium">Modo da Marca d'água</label>
+                            <select id="branding-watermark-mode" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                <option value="logo">Logo da empresa</option>
+                                <option value="text">Somente texto</option>
+                                <option value="both">Logo + texto</option>
+                                <option value="none">Sem marca d'água</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="branding-watermark-image-url" class="block text-sm font-medium">URL da Marca d'água</label>
+                            <input id="branding-watermark-image-url" type="url" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="https://.../marca.png">
+                        </div>
+                        <div>
+                            <label for="branding-watermark-text" class="block text-sm font-medium">Texto da Marca d'água</label>
+                            <input id="branding-watermark-text" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="DOCUMENTO ASSINADO DIGITALMENTE">
+                        </div>
+                        <div>
+                            <label for="branding-watermark-opacity" class="block text-sm font-medium">Opacidade (0.05 a 0.50)</label>
+                            <input id="branding-watermark-opacity" type="number" min="0.05" max="0.50" step="0.01" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="0.15">
+                        </div>
+                        <div>
+                            <label for="branding-watermark-scale" class="block text-sm font-medium">Escala (0.10 a 1.00)</label>
+                            <input id="branding-watermark-scale" type="number" min="0.10" max="1.00" step="0.01" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="0.30">
+                        </div>
+                        <div class="xl:col-span-1">
+                            <label class="block text-sm font-medium">Ativar marca d'água</label>
+                            <label class="mt-2 inline-flex items-center gap-2 text-sm text-slate-700">
+                                <input id="branding-watermark-enabled" type="checkbox" class="h-4 w-4 rounded border-slate-300" checked>
+                                <span>Habilitada</span>
+                            </label>
+                        </div>
+
+                        <div class="sm:col-span-2 xl:col-span-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pré-visualização</p>
+                            <p id="branding-preview-line" class="mt-1 text-sm text-slate-700">Modo: Logo da empresa · Opacidade: 0.15 · Escala: 0.30</p>
+                        </div>
+
+                        <div class="sm:col-span-2 xl:col-span-3 flex justify-end border-t border-slate-200 pt-3">
+                            <button type="submit" class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]">
+                                Salvar Configurações de Marca
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </section>
 
         </main>

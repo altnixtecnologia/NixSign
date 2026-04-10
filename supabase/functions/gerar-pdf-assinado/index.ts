@@ -216,10 +216,25 @@ serve(async (req) => {
     if (pdfError) throw new Error('Erro baixar PDF.');
     const originalPdfBytes = await originalPdfFile.arrayBuffer();
 
-    let tecnicoSignBytes: ArrayBuffer | null = null;
+    let tecnicoSignBlob: Blob | null = null;
     try {
-      const { data: f } = await supabaseAdmin.storage.from('assinaturas_internas').download('assinatura-tecnico.png');
-      if (f) tecnicoSignBytes = await f.arrayBuffer();
+      const envSignaturePath = sanitizeText(Deno.env.get('COMPANY_SIGNATURE_PATH') ?? '', 220);
+      const signaturePathCandidates = [
+        envSignaturePath,
+        'assinatura-tecnico.png',
+        'assinatura-empresa.png',
+        'assinatura-admin.png',
+        'assinatura-tecnico.jpg',
+        'assinatura-empresa.jpg',
+      ].filter(Boolean);
+
+      for (const candidatePath of signaturePathCandidates) {
+        const { data: fileBlob } = await supabaseAdmin.storage.from('assinaturas_internas').download(candidatePath);
+        if (fileBlob && fileBlob.size > 0) {
+          tecnicoSignBlob = fileBlob;
+          break;
+        }
+      }
     } catch {
       // ignore
     }
@@ -241,7 +256,19 @@ serve(async (req) => {
     const clienteSignBase64 = String(signData.imagem_assinatura_base64 ?? '').split(',')[1];
     const clienteSignBytes = Uint8Array.from(atob(clienteSignBase64), (c) => c.charCodeAt(0));
     const clienteSignImage = await pdfDoc.embedPng(clienteSignBytes);
-    const tecnicoSignImage = tecnicoSignBytes ? await pdfDoc.embedPng(tecnicoSignBytes) : null;
+    let tecnicoSignImage: PDFImage | null = null;
+    if (tecnicoSignBlob) {
+      const tecnicoSignBytes = await tecnicoSignBlob.arrayBuffer();
+      try {
+        tecnicoSignImage = await pdfDoc.embedPng(tecnicoSignBytes);
+      } catch {
+        try {
+          tecnicoSignImage = await pdfDoc.embedJpg(tecnicoSignBytes);
+        } catch {
+          tecnicoSignImage = null;
+        }
+      }
+    }
     const logoImage = logoBytes ? await pdfDoc.embedPng(logoBytes) : null;
 
     let nOs = docData.n_os || 'S/N';

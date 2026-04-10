@@ -51,7 +51,11 @@ function extractRequesterIp(req: Request): string {
 
 function isMissingColumnError(error: unknown): boolean {
   const message = String((error as { message?: string } | null)?.message ?? '').toLowerCase();
-  return message.includes('column') && message.includes('does not exist');
+  return (
+    (message.includes('column') && message.includes('does not exist')) ||
+    (message.includes('could not find') && message.includes('column')) ||
+    message.includes('schema cache')
+  );
 }
 
 function isTrueEnv(value: string | undefined, fallback = false): boolean {
@@ -262,7 +266,7 @@ serve(async (req) => {
       .select('id')
       .single();
 
-    if (attemptLgpdInsert.error && String(attemptLgpdInsert.error.message).toLowerCase().includes('column') && String(attemptLgpdInsert.error.message).toLowerCase().includes('does not exist')) {
+    if (attemptLgpdInsert.error && isMissingColumnError(attemptLgpdInsert.error)) {
       const fallbackInsert = await supabaseAdmin
         .from('assinaturas')
         .insert(signatureInsertBase)

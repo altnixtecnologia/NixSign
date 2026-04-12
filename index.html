@@ -642,16 +642,6 @@
             <p class="mt-2 text-sm" style="color: var(--text-soft);">
                 Acesso ao painel para emissão de links, auditoria e acompanhamento de assinaturas.
             </p>
-            <div class="session-row mt-4">
-                <button id="session-logout-btn" type="button" class="entry-btn-ghost entry-action session-logout hidden">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <path d="M10 17l5-5-5-5"/>
-                        <path d="M15 12H3"/>
-                        <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/>
-                    </svg>
-                    <span class="btn-label">Sair</span>
-                </button>
-            </div>
             <p id="entry-auth-status" class="status-line mt-3 text-xs leading-relaxed" style="color: var(--text-soft);"></p>
             <div class="brand-hero mt-2">
                 <img src="./assets/nixsign-logo.svg" alt="Logo NixSign">
@@ -747,7 +737,6 @@
 
         const googleLoginBtn = document.getElementById('google-login-btn');
         const googleLoginLabel = document.getElementById('google-login-label');
-        const sessionLogoutBtn = document.getElementById('session-logout-btn');
         const emailLoginInput = document.getElementById('email-login-input');
         const passwordLoginInput = document.getElementById('password-login-input');
         const emailLoginBtn = document.getElementById('email-login-btn');
@@ -831,14 +820,12 @@
 
             if (user) {
                 if (authStatus) authStatus.textContent = `Conectado como ${user.email || 'usuário autenticado'}.`;
-                if (googleLoginLabel) googleLoginLabel.textContent = 'Trocar Conta Google';
-                if (sessionLogoutBtn) sessionLogoutBtn.classList.remove('hidden');
+                if (googleLoginLabel) googleLoginLabel.textContent = 'Continuar com Google';
                 if (emailLoginInput) emailLoginInput.value = user.email || '';
                 if (passwordLoginInput) passwordLoginInput.value = '';
             } else {
                 if (authStatus) authStatus.textContent = '';
                 if (googleLoginLabel) googleLoginLabel.textContent = 'Continuar com Google';
-                if (sessionLogoutBtn) sessionLogoutBtn.classList.add('hidden');
             }
 
             if (resetPasswordBox) {
@@ -912,13 +899,6 @@
                 } catch (error) {
                     if (authStatus) authStatus.textContent = `Erro ao redefinir senha: ${error.message}`;
                 }
-            });
-        }
-
-        if (sessionLogoutBtn) {
-            sessionLogoutBtn.addEventListener('click', async () => {
-                await supabase.auth.signOut();
-                await refreshAuthState();
             });
         }
 

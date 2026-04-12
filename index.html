@@ -191,6 +191,77 @@
             letter-spacing: -0.01em;
             color: var(--text);
         }
+        @media (max-width: 900px) {
+            .preload-shell {
+                width: min(96vw, 680px);
+                min-height: auto;
+                max-height: 94svh;
+                border-radius: 24px;
+                padding: clamp(18px, 4.5vw, 28px);
+                grid-template-rows: auto auto auto auto auto;
+                gap: 14px;
+                overflow: auto;
+            }
+            .preload-title {
+                font-size: clamp(24px, 6.5vw, 34px);
+                line-height: 1.14;
+            }
+            .preload-description {
+                margin-top: 8px;
+                font-size: clamp(13px, 3.6vw, 16px);
+                line-height: 1.45;
+                white-space: normal;
+            }
+            .preload-hero {
+                min-height: 140px;
+            }
+            .preload-logo-hero {
+                width: clamp(120px, 36vw, 180px);
+                height: clamp(120px, 36vw, 180px);
+            }
+            .preload-track {
+                height: 12px;
+            }
+            .preload-meta {
+                font-size: 13px;
+            }
+            .preload-meta strong {
+                font-size: 20px;
+            }
+        }
+        @media (max-width: 520px) {
+            .preload-shell {
+                width: calc(100vw - 16px);
+                max-height: calc(100svh - 16px);
+                border-radius: 18px;
+                padding: 14px;
+                gap: 12px;
+            }
+            .preload-brand img {
+                width: 34px;
+                height: 34px;
+                border-radius: 10px;
+            }
+            .preload-label {
+                font-size: 11px;
+            }
+            .preload-title {
+                font-size: clamp(20px, 7vw, 28px);
+            }
+            .preload-description {
+                font-size: 13px;
+            }
+            .preload-hero {
+                min-height: 108px;
+            }
+            .preload-meta {
+                font-size: 12px;
+                gap: 8px;
+            }
+            .preload-meta strong {
+                font-size: 18px;
+            }
+        }
         .entry-btn {
             border-radius: 10px;
             border: 1px solid color-mix(in srgb, var(--brand) 34%, var(--border));

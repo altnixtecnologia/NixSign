@@ -158,9 +158,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const showConsultationBtn = document.getElementById('show-consultation-btn');
     const showUsersBtn = document.getElementById('show-users-btn');
     const showSettingsBtn = document.getElementById('show-settings-btn');
+    const showSystemClientsBtn = document.getElementById('show-system-clients-btn');
     const preparationView = document.getElementById('preparation-view');
     const usersView = document.getElementById('users-view');
     const settingsView = document.getElementById('settings-view');
+    const systemClientsView = document.getElementById('system-clients-view');
     const cancelPreparationBtn = document.getElementById('cancel-preparation-btn');
     const loggedUserLabel = document.getElementById('logged-user-label');
     const panelVersionLabel = document.getElementById('panel-version-label');
@@ -230,6 +232,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const brandingWatermarkOpacityInput = document.getElementById('branding-watermark-opacity');
     const brandingWatermarkScaleInput = document.getElementById('branding-watermark-scale');
     const brandingPreviewLine = document.getElementById('branding-preview-line');
+    const refreshSystemClientsBtn = document.getElementById('refresh-system-clients-btn');
+    const systemClientsFeedback = document.getElementById('system-clients-feedback');
+    const systemClientCreateForm = document.getElementById('system-client-create-form');
+    const systemCompanyDisplayNameInput = document.getElementById('system-company-display-name');
+    const systemCompanySlugInput = document.getElementById('system-company-slug');
+    const systemOwnerNameInput = document.getElementById('system-owner-name');
+    const systemOwnerEmailInput = document.getElementById('system-owner-email');
+    const systemOwnerPasswordInput = document.getElementById('system-owner-password');
+    const systemCompanyStatusInput = document.getElementById('system-company-status');
+    const systemGeneratedPasswordBox = document.getElementById('system-generated-password-box');
+    const systemGeneratedPasswordValue = document.getElementById('system-generated-password-value');
+    const systemTenantsList = document.getElementById('system-tenants-list');
 
     // Modais
     const detailsModal = document.getElementById('details-modal');
@@ -268,6 +282,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let invitesDataCache = [];
     let clientsDataCache = [];
     let brandingDataCache = null;
+    let systemTenantsCache = [];
+    const isMasterAdmin = String(adminUserData.email || '').toLowerCase() === MASTER_ADMIN_EMAIL;
 
     if (panelVersionLabel) {
         panelVersionLabel.textContent = PANEL_APP_VERSION;
@@ -280,6 +296,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     updateLoggedUserLabel();
+    if (showSystemClientsBtn) {
+        showSystemClientsBtn.classList.toggle('hidden', !isMasterAdmin);
+    }
 
     function setBrandingFeedback(message, type = 'info') {
         if (!tenantBrandingFeedback) return;
@@ -345,6 +364,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (showConsultationBtn) showConsultationBtn.classList.toggle('tab-active', tab === 'consulta');
         if (showUsersBtn) showUsersBtn.classList.toggle('tab-active', tab === 'usuarios');
         if (showSettingsBtn) showSettingsBtn.classList.toggle('tab-active', tab === 'configuracoes');
+        if (showSystemClientsBtn) showSystemClientsBtn.classList.toggle('tab-active', tab === 'clientes_sistema');
     }
 
     function resetPreparationView() {
@@ -354,6 +374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(consultationView) consultationView.classList.add('hidden');
         if(usersView) usersView.classList.add('hidden');
         if(settingsView) settingsView.classList.add('hidden');
+        if(systemClientsView) systemClientsView.classList.add('hidden');
         setTopTab('novo');
 
         if(osFileInput) osFileInput.value = '';
@@ -383,6 +404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(consultationView) consultationView.classList.add('hidden');
         if(usersView) usersView.classList.add('hidden');
         if(settingsView) settingsView.classList.add('hidden');
+        if(systemClientsView) systemClientsView.classList.add('hidden');
         setTopTab('novo');
         
         showFeedback('Carregando PDF...', 'info'); 
@@ -566,6 +588,91 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
         usersFeedback.className = `text-sm ${classes[type] || classes.info}`;
         usersFeedback.textContent = message || '';
+    }
+
+    function setSystemClientsFeedback(message, type = 'info') {
+        if (!systemClientsFeedback) return;
+        const classes = {
+            info: 'text-slate-500',
+            success: 'text-green-600',
+            error: 'text-red-600'
+        };
+        systemClientsFeedback.className = `text-sm ${classes[type] || classes.info}`;
+        systemClientsFeedback.textContent = message || '';
+    }
+
+    function renderSystemTenantsList(tenants) {
+        if (!systemTenantsList) return;
+        if (!Array.isArray(tenants) || tenants.length === 0) {
+            systemTenantsList.innerHTML = '<p class="col-span-full text-sm text-slate-500">Nenhuma empresa cadastrada.</p>';
+            return;
+        }
+
+        const statusLabel = {
+            active: 'Ativa',
+            inactive: 'Inativa',
+            suspended: 'Suspensa'
+        };
+
+        const statusClass = {
+            active: 'bg-green-100 text-green-700 border-green-200',
+            inactive: 'bg-amber-100 text-amber-700 border-amber-200',
+            suspended: 'bg-red-100 text-red-700 border-red-200'
+        };
+
+        systemTenantsList.innerHTML = tenants.map((tenant) => {
+            const currentStatus = String(tenant.status || 'inactive').toLowerCase();
+            const label = statusLabel[currentStatus] || currentStatus;
+            const klass = statusClass[currentStatus] || statusClass.inactive;
+            const safeDisplay = escapeHtml(tenant.display_name || 'Empresa sem nome');
+            const safeSlug = escapeHtml(tenant.slug || '-');
+            const safeOwner = escapeHtml(tenant.owner_email || '-');
+            const memberCount = Number(tenant.member_count || 0);
+            const createdAt = formatDateTime(tenant.created_at);
+
+            return `
+                <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-slate-800 break-words">${safeDisplay}</p>
+                            <p class="text-xs text-slate-500 break-words">slug: ${safeSlug}</p>
+                        </div>
+                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${klass}">${label}</span>
+                    </div>
+                    <div class="text-xs text-slate-600 space-y-0.5">
+                        <p>Proprietário: ${safeOwner}</p>
+                        <p>Membros: ${memberCount}</p>
+                        <p>Criada em: ${createdAt}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        <button data-system-tenant-status="${tenant.id}" data-next-status="active" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">Ativar</button>
+                        <button data-system-tenant-status="${tenant.id}" data-next-status="suspended" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">Bloquear</button>
+                        <button data-system-tenant-delete="${tenant.id}" class="rounded-md border border-red-300 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Excluir</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function carregarClientesSistema() {
+        if (!isMasterAdmin) return;
+        setSystemClientsFeedback('Carregando empresas...', 'info');
+        if (systemTenantsList) {
+            systemTenantsList.innerHTML = '<p class="col-span-full text-sm text-slate-500">Carregando empresas...</p>';
+        }
+
+        try {
+            const result = await db.listSystemTenants();
+            const tenants = Array.isArray(result?.tenants) ? result.tenants : [];
+            systemTenantsCache = tenants;
+            renderSystemTenantsList(tenants);
+            setSystemClientsFeedback('Lista de empresas atualizada.', 'success');
+        } catch (error) {
+            setSystemClientsFeedback(`Erro ao carregar empresas: ${error.message}`, 'error');
+            if (systemTenantsList) {
+                systemTenantsList.innerHTML = '<p class="col-span-full text-sm text-red-600">Falha ao carregar empresas.</p>';
+            }
+        }
     }
 
     function clearClientForm() {
@@ -810,6 +917,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(consultationView) consultationView.classList.add('hidden');
         if(usersView) usersView.classList.remove('hidden');
         if(settingsView) settingsView.classList.add('hidden');
+        if(systemClientsView) systemClientsView.classList.add('hidden');
         setTopTab('usuarios');
         await carregarGestaoUsuarios();
     }
@@ -821,8 +929,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(consultationView) consultationView.classList.add('hidden');
         if(usersView) usersView.classList.add('hidden');
         if(settingsView) settingsView.classList.remove('hidden');
+        if(systemClientsView) systemClientsView.classList.add('hidden');
         setTopTab('configuracoes');
         await carregarGestaoUsuarios();
+    }
+
+    async function abrirClientesSistema() {
+        if (!isMasterAdmin) return;
+        if(uploadInitialView) uploadInitialView.style.display = 'none';
+        if(workspacePanel) workspacePanel.classList.remove('hidden');
+        if(preparationView) preparationView.classList.add('hidden');
+        if(consultationView) consultationView.classList.add('hidden');
+        if(usersView) usersView.classList.add('hidden');
+        if(settingsView) settingsView.classList.add('hidden');
+        if(systemClientsView) systemClientsView.classList.remove('hidden');
+        setTopTab('clientes_sistema');
+        await carregarClientesSistema();
     }
 
     async function carregarDocumentos() {
@@ -1079,6 +1201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(consultationView) consultationView.classList.remove('hidden');
         if(usersView) usersView.classList.add('hidden');
         if(settingsView) settingsView.classList.add('hidden');
+        if(systemClientsView) systemClientsView.classList.add('hidden');
         setTopTab('consulta');
         carregarDocumentos();
     });
@@ -1090,6 +1213,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(consultationView) consultationView.classList.remove('hidden');
         if(usersView) usersView.classList.add('hidden');
         if(settingsView) settingsView.classList.add('hidden');
+        if(systemClientsView) systemClientsView.classList.add('hidden');
         setTopTab('consulta');
         carregarDocumentos();
     });
@@ -1099,10 +1223,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(showSettingsBtn) showSettingsBtn.addEventListener('click', () => {
         abrirConfiguracoes();
     });
+    if(showSystemClientsBtn) showSystemClientsBtn.addEventListener('click', () => {
+        abrirClientesSistema();
+    });
     if(backToInitialViewBtn) backToInitialViewBtn.addEventListener('click', resetPreparationView);
     
     if(refreshListBtn) refreshListBtn.addEventListener('click', carregarDocumentos);
     if(refreshUsersBtn) refreshUsersBtn.addEventListener('click', carregarGestaoUsuarios);
+    if(refreshSystemClientsBtn) refreshSystemClientsBtn.addEventListener('click', carregarClientesSistema);
     
     if(statusFilterButtons) {
         statusFilterButtons.addEventListener('click', (e) => { 
@@ -1282,6 +1410,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (systemClientCreateForm) {
+        systemClientCreateForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!isMasterAdmin) {
+                setSystemClientsFeedback('Acesso restrito ao usuário master.', 'error');
+                return;
+            }
+
+            try {
+                const displayName = String(systemCompanyDisplayNameInput?.value || '').trim();
+                const slug = String(systemCompanySlugInput?.value || '').trim();
+                const ownerName = String(systemOwnerNameInput?.value || '').trim();
+                const ownerEmail = String(systemOwnerEmailInput?.value || '').trim().toLowerCase();
+                const ownerPassword = String(systemOwnerPasswordInput?.value || '').trim();
+                const status = String(systemCompanyStatusInput?.value || 'active').trim().toLowerCase();
+
+                if (!displayName) throw new Error('Informe o nome da empresa.');
+                if (!ownerEmail) throw new Error('Informe o e-mail do proprietário.');
+
+                const result = await db.createSystemTenant({
+                    display_name: displayName,
+                    slug,
+                    owner_name: ownerName,
+                    owner_email: ownerEmail,
+                    owner_password: ownerPassword || null,
+                    status,
+                });
+
+                if (systemClientCreateForm) systemClientCreateForm.reset();
+                setSystemClientsFeedback('Empresa cadastrada com sucesso.', 'success');
+
+                const generatedPassword = String(result?.generated_password || '').trim();
+                if (systemGeneratedPasswordBox && systemGeneratedPasswordValue) {
+                    if (generatedPassword) {
+                        systemGeneratedPasswordValue.textContent = generatedPassword;
+                        systemGeneratedPasswordBox.classList.remove('hidden');
+                    } else {
+                        systemGeneratedPasswordValue.textContent = '';
+                        systemGeneratedPasswordBox.classList.add('hidden');
+                    }
+                }
+
+                await carregarClientesSistema();
+            } catch (error) {
+                setSystemClientsFeedback(`Erro ao cadastrar empresa: ${error.message}`, 'error');
+            }
+        });
+    }
+
     if (tenantClientList) {
         tenantClientList.addEventListener('click', async (event) => {
             if (!(event.target instanceof Element)) return;
@@ -1313,6 +1490,58 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await carregarGestaoUsuarios();
                 } catch (error) {
                     setUsersFeedback(`Erro ao atualizar cliente: ${error.message}`, 'error');
+                }
+            }
+        });
+    }
+
+    if (systemTenantsList) {
+        systemTenantsList.addEventListener('click', async (event) => {
+            if (!(event.target instanceof Element)) return;
+            const statusBtn = event.target.closest('[data-system-tenant-status]');
+            const deleteBtn = event.target.closest('[data-system-tenant-delete]');
+
+            if (statusBtn) {
+                const tenantId = String(statusBtn.getAttribute('data-system-tenant-status') || '');
+                const nextStatus = String(statusBtn.getAttribute('data-next-status') || '');
+                if (!tenantId || !nextStatus) return;
+                try {
+                    await db.updateSystemTenantStatus(tenantId, nextStatus);
+                    setSystemClientsFeedback('Status da empresa atualizado.', 'success');
+                    await carregarClientesSistema();
+                } catch (error) {
+                    setSystemClientsFeedback(`Erro ao atualizar status: ${error.message}`, 'error');
+                }
+                return;
+            }
+
+            if (deleteBtn) {
+                const tenantId = String(deleteBtn.getAttribute('data-system-tenant-delete') || '');
+                if (!tenantId) return;
+                const tenant = systemTenantsCache.find((item) => String(item.id) === tenantId);
+                const tenantName = tenant?.display_name || 'esta empresa';
+                const confirmed = window.confirm(`Excluir ${tenantName}? Essa ação remove o tenant do sistema.`);
+                if (!confirmed) return;
+
+                try {
+                    await db.deleteSystemTenant(tenantId, false);
+                    setSystemClientsFeedback('Empresa excluída.', 'success');
+                    await carregarClientesSistema();
+                } catch (error) {
+                    const msg = String(error?.message || '');
+                    if (msg.toLowerCase().includes('force=true')) {
+                        const forceConfirmed = window.confirm('Essa empresa possui documentos vinculados. Deseja excluir mesmo assim (documentos ficam sem tenant)?');
+                        if (!forceConfirmed) return;
+                        try {
+                            await db.deleteSystemTenant(tenantId, true);
+                            setSystemClientsFeedback('Empresa excluída com força.', 'success');
+                            await carregarClientesSistema();
+                        } catch (forceError) {
+                            setSystemClientsFeedback(`Erro ao excluir empresa: ${forceError.message}`, 'error');
+                        }
+                    } else {
+                        setSystemClientsFeedback(`Erro ao excluir empresa: ${error.message}`, 'error');
+                    }
                 }
             }
         });

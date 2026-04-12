@@ -352,6 +352,42 @@ export async function setTenantClientStatus(clientId, status) {
     return data;
 }
 
+// --- FUNÇÕES MASTER (CLIENTES DO SISTEMA / EMPRESAS) ---
+
+async function invokeMasterTenantAdmin(body) {
+    const { data, error } = await supabase.functions.invoke('master-tenant-admin', { body });
+    if (error) {
+        let message = error.message || 'Falha na operação de administração.';
+        try {
+            const response = error.context;
+            if (response && typeof response.json === 'function') {
+                const payload = await response.json();
+                if (payload?.error) message = String(payload.error);
+            }
+        } catch (_) {
+            // mantém mensagem padrão
+        }
+        throw new Error(message);
+    }
+    return data;
+}
+
+export async function listSystemTenants() {
+    return await invokeMasterTenantAdmin({ action: 'list' });
+}
+
+export async function createSystemTenant(payload) {
+    return await invokeMasterTenantAdmin({ action: 'create', ...payload });
+}
+
+export async function updateSystemTenantStatus(tenantId, status) {
+    return await invokeMasterTenantAdmin({ action: 'set_status', tenant_id: tenantId, status });
+}
+
+export async function deleteSystemTenant(tenantId, force = false) {
+    return await invokeMasterTenantAdmin({ action: 'delete', tenant_id: tenantId, force: force === true });
+}
+
 export function getPublicUrl(path) {
     const { data } = supabase.storage.from('documentos').getPublicUrl(path);
     return data.publicUrl;

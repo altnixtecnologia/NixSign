@@ -399,6 +399,16 @@
                         </svg>
                         <span>Configurações</span>
                     </button>
+                    <button id="show-system-clients-btn" class="browser-tab hidden" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M3 7h18"/>
+                            <path d="M6 7V5.8A1.8 1.8 0 0 1 7.8 4h8.4A1.8 1.8 0 0 1 18 5.8V7"/>
+                            <rect x="4" y="7" width="16" height="13" rx="2"/>
+                            <path d="M8 12h8"/>
+                            <path d="M8 16h5"/>
+                        </svg>
+                        <span>Clientes do Sistema</span>
+                    </button>
                 </nav>
             </div>
         </header>
@@ -618,6 +628,70 @@
                     </div>
                 </div>
 
+            </section>
+
+            <section id="system-clients-view" class="hidden space-y-6">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-slate-200 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-bold">Clientes do Sistema</h2>
+                        <p class="text-sm text-[var(--ink-soft)]">Cadastro centralizado de empresas (tenants), com bloqueio e exclusão.</p>
+                    </div>
+                    <button id="refresh-system-clients-btn" class="text-sm text-[var(--brand-dark)] hover:underline self-start sm:self-auto">Atualizar</button>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+                    <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Nova Empresa</h3>
+                    <p class="text-sm text-[var(--ink-soft)]">Crie ambiente limpo para um novo cliente, com proprietário inicial.</p>
+                    <div id="system-clients-feedback" class="text-sm text-slate-500"></div>
+
+                    <form id="system-client-create-form" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        <div>
+                            <label for="system-company-display-name" class="block text-sm font-medium">Nome da Empresa</label>
+                            <input id="system-company-display-name" type="text" required class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Empresa Exemplo LTDA">
+                        </div>
+                        <div>
+                            <label for="system-company-slug" class="block text-sm font-medium">Slug (opcional)</label>
+                            <input id="system-company-slug" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="empresa-exemplo">
+                        </div>
+                        <div>
+                            <label for="system-owner-name" class="block text-sm font-medium">Nome do Proprietário</label>
+                            <input id="system-owner-name" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Nome do responsável">
+                        </div>
+                        <div>
+                            <label for="system-owner-email" class="block text-sm font-medium">E-mail do Proprietário</label>
+                            <input id="system-owner-email" type="email" required class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="dono@empresa.com.br">
+                        </div>
+                        <div>
+                            <label for="system-owner-password" class="block text-sm font-medium">Senha inicial (opcional)</label>
+                            <input id="system-owner-password" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Se vazio, gera automática">
+                        </div>
+                        <div>
+                            <label for="system-company-status" class="block text-sm font-medium">Status inicial</label>
+                            <select id="system-company-status" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                <option value="active">Ativa</option>
+                                <option value="inactive">Inativa</option>
+                                <option value="suspended">Suspensa</option>
+                            </select>
+                        </div>
+                        <div class="sm:col-span-2 xl:col-span-3 flex justify-end border-t border-slate-200 pt-3">
+                            <button type="submit" class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]">
+                                Cadastrar Empresa
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="system-generated-password-box" class="hidden rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        <p class="font-semibold">Senha automática gerada:</p>
+                        <p id="system-generated-password-value" class="mt-1 break-all font-mono"></p>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+                    <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Empresas Cadastradas</h3>
+                    <div id="system-tenants-list" class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        <p class="col-span-full text-sm text-slate-500">Carregando empresas...</p>
+                    </div>
+                </div>
             </section>
             <section id="settings-view" class="hidden space-y-6">
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-slate-200 pb-4">

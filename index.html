@@ -262,6 +262,26 @@
                 font-size: 18px;
             }
         }
+        @media (max-height: 760px) {
+            .preload-shell {
+                max-height: calc(100svh - 12px);
+                padding: clamp(12px, 3vh, 18px);
+                gap: 10px;
+            }
+            .preload-hero {
+                min-height: 90px;
+            }
+            .preload-logo-hero {
+                width: clamp(96px, 18vh, 140px);
+                height: clamp(96px, 18vh, 140px);
+            }
+            .preload-meta {
+                font-size: 12px;
+            }
+            .preload-meta strong {
+                font-size: 18px;
+            }
+        }
         .entry-btn {
             border-radius: 10px;
             border: 1px solid color-mix(in srgb, var(--brand) 34%, var(--border));
@@ -566,6 +586,81 @@
                 opacity: 1;
                 transform: translateX(0) translateY(0) scale(1);
                 filter: blur(0);
+            }
+        }
+        @media (max-width: 760px) {
+            .login-stage {
+                min-height: 100svh;
+                justify-content: flex-start;
+                gap: 10px;
+                padding: 12px;
+            }
+            .login-stage::before {
+                width: min(240px, 56vw);
+                height: min(240px, 56vw);
+                top: 4%;
+                left: -8%;
+                opacity: 0.5;
+            }
+            .login-stage::after {
+                width: min(220px, 52vw);
+                height: min(220px, 52vw);
+                bottom: 0;
+                right: -10%;
+                opacity: 0.42;
+            }
+            .login-shell {
+                width: 100%;
+                border-radius: 18px !important;
+                padding: 14px !important;
+            }
+            .login-shell h1 {
+                font-size: clamp(30px, 8.4vw, 38px) !important;
+                line-height: 1.08;
+            }
+            .brand-hero {
+                border-radius: 12px;
+                padding: 10px;
+                gap: 10px;
+            }
+            .brand-hero img {
+                width: 56px;
+                height: 56px;
+                border-radius: 12px;
+            }
+            .brand-hero strong {
+                font-size: 15px;
+            }
+            .brand-hero p {
+                font-size: 11px;
+                line-height: 1.35;
+            }
+            .auth-panel {
+                border-radius: 12px;
+                padding: 12px !important;
+            }
+            .external-cta {
+                border-radius: 12px;
+            }
+        }
+        @media (max-width: 420px) {
+            .login-stage {
+                padding: 10px;
+            }
+            .login-shell {
+                padding: 12px !important;
+            }
+            .brand-hero {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .brand-hero img {
+                width: 52px;
+                height: 52px;
+            }
+            .entry-action {
+                padding: 11px 12px;
+                font-size: 13px;
             }
         }
         @media (prefers-reduced-motion: reduce) {

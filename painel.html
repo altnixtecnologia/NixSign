@@ -634,18 +634,42 @@
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-slate-200 pb-4">
                     <div>
                         <h2 class="text-2xl font-bold">Clientes do Sistema</h2>
-                        <p class="text-sm text-[var(--ink-soft)]">Cadastro centralizado de empresas (tenants), com bloqueio e exclusão.</p>
+                        <p class="text-sm text-[var(--ink-soft)]">Controle central de empresas contratantes: criar, editar, bloquear e excluir.</p>
                     </div>
-                    <button id="refresh-system-clients-btn" class="text-sm text-[var(--brand-dark)] hover:underline self-start sm:self-auto">Atualizar</button>
+                    <div class="flex items-center gap-3">
+                        <button id="refresh-system-clients-btn" class="text-sm text-[var(--brand-dark)] hover:underline self-start sm:self-auto">Atualizar</button>
+                        <button id="open-system-client-modal-btn" type="button" class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]">
+                            Nova Empresa
+                        </button>
+                    </div>
                 </div>
 
                 <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
-                    <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Nova Empresa</h3>
-                    <p class="text-sm text-[var(--ink-soft)]">Crie ambiente limpo para um novo cliente, com proprietário inicial.</p>
+                    <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Empresas Cadastradas</h3>
                     <div id="system-clients-feedback" class="text-sm text-slate-500"></div>
-
-                    <form id="system-client-create-form" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div id="system-generated-password-box" class="hidden rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        <p class="font-semibold">Senha automática gerada:</p>
+                        <p id="system-generated-password-value" class="mt-1 break-all font-mono"></p>
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-2">
                         <div>
+                            <label for="system-tenants-search-input" class="block text-sm font-medium">Busca</label>
+                            <input id="system-tenants-search-input" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Nome, e-mail, CNPJ/CPF, slug...">
+                        </div>
+                    </div>
+                    <div id="system-tenants-list" class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        <p class="col-span-full text-sm text-slate-500">Carregando empresas...</p>
+                    </div>
+                </div>
+            </section>
+
+            <div id="system-client-modal" class="modal hidden fixed inset-0 bg-slate-900 bg-opacity-70 items-center justify-center p-4 z-50">
+                <div class="floating w-full max-w-5xl p-6 relative max-h-[94vh] overflow-y-auto">
+                    <button id="close-system-client-modal-btn" class="absolute top-4 right-4 text-2xl text-slate-400 hover:text-slate-700">&times;</button>
+                    <h3 id="system-client-modal-title" class="text-xl font-bold mb-4">Nova Empresa</h3>
+                    <form id="system-client-form" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <input type="hidden" id="system-client-tenant-id">
+                        <div class="sm:col-span-2 xl:col-span-2">
                             <label for="system-company-display-name" class="block text-sm font-medium">Nome da Empresa</label>
                             <input id="system-company-display-name" type="text" required class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Empresa Exemplo LTDA">
                         </div>
@@ -654,45 +678,77 @@
                             <input id="system-company-slug" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="empresa-exemplo">
                         </div>
                         <div>
-                            <label for="system-owner-name" class="block text-sm font-medium">Nome do Proprietário</label>
+                            <label for="system-company-tax-id" class="block text-sm font-medium">CNPJ/CPF</label>
+                            <input id="system-company-tax-id" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="00.000.000/0001-00">
+                        </div>
+                        <div>
+                            <label for="system-owner-name" class="block text-sm font-medium">Responsável</label>
                             <input id="system-owner-name" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Nome do responsável">
                         </div>
                         <div>
-                            <label for="system-owner-email" class="block text-sm font-medium">E-mail do Proprietário</label>
+                            <label for="system-owner-email" class="block text-sm font-medium">E-mail do Responsável</label>
                             <input id="system-owner-email" type="email" required class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="dono@empresa.com.br">
                         </div>
                         <div>
-                            <label for="system-owner-password" class="block text-sm font-medium">Senha inicial (opcional)</label>
-                            <input id="system-owner-password" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Se vazio, gera automática">
+                            <label for="system-company-phone" class="block text-sm font-medium">Telefone</label>
+                            <input id="system-company-phone" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="(47) 99999-9999">
                         </div>
                         <div>
-                            <label for="system-company-status" class="block text-sm font-medium">Status inicial</label>
+                            <label for="system-company-status" class="block text-sm font-medium">Status</label>
                             <select id="system-company-status" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
                                 <option value="active">Ativa</option>
                                 <option value="inactive">Inativa</option>
                                 <option value="suspended">Suspensa</option>
                             </select>
                         </div>
-                        <div class="sm:col-span-2 xl:col-span-3 flex justify-end border-t border-slate-200 pt-3">
+                        <div>
+                            <label for="system-company-cep" class="block text-sm font-medium">CEP</label>
+                            <div class="mt-1 flex gap-2">
+                                <input id="system-company-cep" type="text" class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="00000-000">
+                                <button id="system-cep-lookup-btn" type="button" class="rounded-lg border border-slate-300 bg-white px-3 text-xs hover:bg-slate-50">Buscar</button>
+                            </div>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label for="system-company-address-line" class="block text-sm font-medium">Endereço</label>
+                            <input id="system-company-address-line" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Rua / Avenida">
+                        </div>
+                        <div>
+                            <label for="system-company-address-number" class="block text-sm font-medium">Número</label>
+                            <input id="system-company-address-number" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="123">
+                        </div>
+                        <div>
+                            <label for="system-company-address-complement" class="block text-sm font-medium">Complemento</label>
+                            <input id="system-company-address-complement" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Sala / bloco">
+                        </div>
+                        <div>
+                            <label for="system-company-neighborhood" class="block text-sm font-medium">Bairro</label>
+                            <input id="system-company-neighborhood" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Bairro">
+                        </div>
+                        <div>
+                            <label for="system-company-city" class="block text-sm font-medium">Cidade</label>
+                            <input id="system-company-city" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Cidade">
+                        </div>
+                        <div>
+                            <label for="system-company-state" class="block text-sm font-medium">UF</label>
+                            <input id="system-company-state" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="SC">
+                        </div>
+                        <div class="sm:col-span-2 xl:col-span-4">
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                                <input id="system-allow-google-login" type="checkbox" class="h-4 w-4 rounded border-slate-300">
+                                <span>Liberar login Google para essa empresa</span>
+                            </label>
+                        </div>
+                        <div class="sm:col-span-2 xl:col-span-4 flex justify-end gap-2 border-t border-slate-200 pt-3">
+                            <button id="cancel-system-client-modal-btn" type="button" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                Cancelar
+                            </button>
                             <button type="submit" class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]">
-                                Cadastrar Empresa
+                                Salvar Empresa
                             </button>
                         </div>
                     </form>
-
-                    <div id="system-generated-password-box" class="hidden rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                        <p class="font-semibold">Senha automática gerada:</p>
-                        <p id="system-generated-password-value" class="mt-1 break-all font-mono"></p>
-                    </div>
                 </div>
-
-                <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
-                    <h3 class="text-lg font-semibold border-b border-slate-200 pb-2">Empresas Cadastradas</h3>
-                    <div id="system-tenants-list" class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        <p class="col-span-full text-sm text-slate-500">Carregando empresas...</p>
-                    </div>
-                </div>
-            </section>
+            </div>
             <section id="settings-view" class="hidden space-y-6">
                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-slate-200 pb-4">
                     <div>

@@ -91,6 +91,23 @@ async function findAuthUserByEmail(supabaseAdmin: ReturnType<typeof createClient
   }
 }
 
+function sanitizeRegistryInput(raw: Record<string, unknown>) {
+  return {
+    company_tax_id: sanitizeText(raw.company_tax_id, 40) || null,
+    phone: sanitizeText(raw.phone, 30) || null,
+    cep: sanitizeText(raw.cep, 12) || null,
+    address_line: sanitizeText(raw.address_line, 220) || null,
+    address_number: sanitizeText(raw.address_number, 30) || null,
+    address_complement: sanitizeText(raw.address_complement, 80) || null,
+    neighborhood: sanitizeText(raw.neighborhood, 120) || null,
+    city: sanitizeText(raw.city, 120) || null,
+    state: sanitizeText(raw.state, 8).toUpperCase() || null,
+    owner_name: sanitizeText(raw.owner_name, 160) || null,
+    owner_email: sanitizeEmail(raw.owner_email) || null,
+    allow_google_login: raw.allow_google_login === true,
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: buildCorsHeaders(req) });
   if (req.method !== 'POST') return jsonResponse(req, 405, { error: 'Método não permitido.' });
@@ -99,7 +116,6 @@ serve(async (req) => {
     const sbUrl = Deno.env.get('PROJECT_URL') ?? Deno.env.get('SUPABASE_URL') ?? '';
     const sbKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? '';
     if (!sbUrl || !sbKey) throw new Error('Configuração incompleta no servidor.');
-
     const supabaseAdmin = createClient(sbUrl, sbKey);
 
     const token = extractBearerToken(req);
@@ -114,7 +130,8 @@ serve(async (req) => {
     }
 
     const payload = await req.json().catch(() => null);
-    const action = sanitizeText((payload as Record<string, unknown> | null)?.action ?? '', 40);
+    const raw = (payload ?? {}) as Record<string, unknown>;
+    const action = sanitizeText(raw.action, 40);
     if (!action) return jsonResponse(req, 400, { error: 'Ação não informada.' });
 
     if (action === 'list') {
@@ -134,7 +151,9 @@ serve(async (req) => {
         updated_at: tenant.updated_at,
       }));
 
+      const tenantIds = safeTenants.map((tenant) => tenant.id);
       const ownerIds = [...new Set(safeTenants.map((tenant) => tenant.owner_user_id).filter(Boolean))];
+
       const ownersById = new Map<string, { email: string; full_name: string }>();
       if (ownerIds.length > 0) {
         const { data: profiles, error: profileError } = await supabaseAdmin
@@ -150,41 +169,74 @@ serve(async (req) => {
         });
       }
 
-      const { data: memberRows, error: memberError } = await supabaseAdmin
-        .from('tenant_members')
-        .select('tenant_id, user_id, role, status')
-        .in('tenant_id', safeTenants.map((tenant) => tenant.id));
-      if (memberError) throw new Error(`Erro ao listar membros por empresa: ${memberError.message}`);
-
       const memberCountByTenant = new Map<string, number>();
-      (memberRows ?? []).forEach((row) => {
-        const tenantId = String(row.tenant_id ?? '');
-        if (!tenantId) return;
-        memberCountByTenant.set(tenantId, (memberCountByTenant.get(tenantId) ?? 0) + 1);
-      });
+      if (tenantIds.length > 0) {
+        const { data: memberRows, error: memberError } = await supabaseAdmin
+          .from('tenant_members')
+          .select('tenant_id')
+          .in('tenant_id', tenantIds);
+        if (memberError) throw new Error(`Erro ao listar membros por empresa: ${memberError.message}`);
+        (memberRows ?? []).forEach((row) => {
+          const tenantId = String(row.tenant_id ?? '');
+          if (!tenantId) return;
+          memberCountByTenant.set(tenantId, (memberCountByTenant.get(tenantId) ?? 0) + 1);
+        });
+      }
+
+      const registryByTenant = new Map<string, Record<string, unknown>>();
+      if (tenantIds.length > 0) {
+        const { data: registryRows, error: registryError } = await supabaseAdmin
+          .from('tenant_registry')
+          .select('tenant_id, company_tax_id, phone, cep, address_line, address_number, address_complement, neighborhood, city, state, owner_name, owner_email, allow_google_login')
+          .in('tenant_id', tenantIds);
+        if (registryError) throw new Error(`Erro ao listar dados cadastrais das empresas: ${registryError.message}`);
+        (registryRows ?? []).forEach((row) => {
+          registryByTenant.set(String(row.tenant_id), row as unknown as Record<string, unknown>);
+        });
+      }
 
       return jsonResponse(req, 200, {
-        tenants: safeTenants.map((tenant) => ({
-          ...tenant,
-          owner_email: ownersById.get(tenant.owner_user_id)?.email ?? '',
-          owner_name: ownersById.get(tenant.owner_user_id)?.full_name ?? '',
-          member_count: memberCountByTenant.get(tenant.id) ?? 0,
-        })),
+        tenants: safeTenants.map((tenant) => {
+          const owner = ownersById.get(tenant.owner_user_id);
+          const registry = registryByTenant.get(tenant.id) ?? {};
+          return {
+            ...tenant,
+            owner_email: sanitizeEmail(registry.owner_email ?? owner?.email ?? ''),
+            owner_name: sanitizeText(registry.owner_name ?? owner?.full_name ?? '', 160),
+            member_count: memberCountByTenant.get(tenant.id) ?? 0,
+            company_tax_id: sanitizeText(registry.company_tax_id, 40),
+            phone: sanitizeText(registry.phone, 30),
+            cep: sanitizeText(registry.cep, 12),
+            address_line: sanitizeText(registry.address_line, 220),
+            address_number: sanitizeText(registry.address_number, 30),
+            address_complement: sanitizeText(registry.address_complement, 80),
+            neighborhood: sanitizeText(registry.neighborhood, 120),
+            city: sanitizeText(registry.city, 120),
+            state: sanitizeText(registry.state, 8),
+            allow_google_login: registry.allow_google_login === true,
+          };
+        }),
       });
     }
 
     if (action === 'create') {
-      const raw = payload as Record<string, unknown>;
       const displayName = sanitizeText(raw.display_name, 180);
       const ownerEmail = sanitizeEmail(raw.owner_email);
       const ownerName = sanitizeText(raw.owner_name, 160);
       const providedSlug = sanitizeText(raw.slug, 80);
       const desiredStatus = sanitizeText(raw.status, 20).toLowerCase() || 'active';
-      const passwordInput = sanitizeText(raw.owner_password, 160);
+      const allowGoogleLogin = raw.allow_google_login === true;
 
       if (!displayName) return jsonResponse(req, 400, { error: 'Nome da empresa é obrigatório.' });
       if (!ownerEmail) return jsonResponse(req, 400, { error: 'E-mail do proprietário inválido.' });
       if (!ALLOWED_STATUSES.has(desiredStatus)) return jsonResponse(req, 400, { error: 'Status inválido.' });
+
+      const existingAuthUser = await findAuthUserByEmail(supabaseAdmin, ownerEmail);
+      if (existingAuthUser) {
+        return jsonResponse(req, 409, {
+          error: 'Já existe usuário auth com este e-mail. Use outro e-mail para novo cliente.',
+        });
+      }
 
       const tenantSlugBase = generateSlug(providedSlug || displayName) || `empresa-${Date.now()}`;
       let tenantSlug = tenantSlugBase;
@@ -201,23 +253,18 @@ serve(async (req) => {
         suffix += 1;
       }
 
-      let authUser = await findAuthUserByEmail(supabaseAdmin, ownerEmail);
-      let generatedPassword = '';
-      if (!authUser) {
-        generatedPassword = passwordInput || buildRandomPassword();
-        const { data: createdUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-          email: ownerEmail,
-          password: generatedPassword,
-          email_confirm: true,
-          user_metadata: { full_name: ownerName || null },
-        });
-        if (createUserError || !createdUser?.user) {
-          throw new Error(`Erro ao criar usuário proprietário: ${createUserError?.message ?? 'falha desconhecida'}`);
-        }
-        authUser = createdUser.user;
+      const generatedPassword = buildRandomPassword();
+      const { data: createdUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+        email: ownerEmail,
+        password: generatedPassword,
+        email_confirm: true,
+        user_metadata: { full_name: ownerName || null },
+      });
+      if (createUserError || !createdUser?.user) {
+        throw new Error(`Erro ao criar usuário proprietário: ${createUserError?.message ?? 'falha desconhecida'}`);
       }
 
-      const ownerUserId = sanitizeUuid(authUser.id);
+      const ownerUserId = sanitizeUuid(createdUser.user.id);
       if (!ownerUserId) throw new Error('Usuário proprietário inválido.');
 
       const { data: tenant, error: tenantInsertError } = await supabaseAdmin
@@ -238,7 +285,7 @@ serve(async (req) => {
           tenant_id: tenant.id,
           user_id: ownerUserId,
           role: 'owner',
-          status: 'active',
+          status: desiredStatus === 'active' ? 'active' : 'disabled',
         }, { onConflict: 'tenant_id,user_id' });
       if (memberUpsertError) throw new Error(`Erro ao vincular proprietário na empresa: ${memberUpsertError.message}`);
 
@@ -252,6 +299,18 @@ serve(async (req) => {
         }, { onConflict: 'user_id' });
       if (profileUpsertError) throw new Error(`Erro ao atualizar perfil do proprietário: ${profileUpsertError.message}`);
 
+      const registryInput = sanitizeRegistryInput(raw);
+      const { error: registryError } = await supabaseAdmin
+        .from('tenant_registry')
+        .upsert({
+          tenant_id: tenant.id,
+          ...registryInput,
+          owner_email: ownerEmail,
+          owner_name: ownerName || registryInput.owner_name,
+          allow_google_login: allowGoogleLogin,
+        }, { onConflict: 'tenant_id' });
+      if (registryError) throw new Error(`Erro ao salvar cadastro da empresa: ${registryError.message}`);
+
       await supabaseAdmin.rpc('ensure_tenant_branding_row', { p_tenant_id: tenant.id }).catch(() => null);
 
       return jsonResponse(req, 200, {
@@ -264,13 +323,100 @@ serve(async (req) => {
           created_at: tenant.created_at,
           owner_email: ownerEmail,
           owner_name: ownerName,
+          allow_google_login: allowGoogleLogin,
         },
-        generated_password: generatedPassword || null,
+        generated_password: generatedPassword,
       });
     }
 
+    if (action === 'upsert_profile') {
+      const tenantId = sanitizeUuid(raw.tenant_id);
+      const displayName = sanitizeText(raw.display_name, 180);
+      const slugInput = sanitizeText(raw.slug, 80);
+      const status = sanitizeText(raw.status, 20).toLowerCase() || 'active';
+      const ownerName = sanitizeText(raw.owner_name, 160);
+      if (!tenantId) return jsonResponse(req, 400, { error: 'tenant_id inválido.' });
+      if (!displayName) return jsonResponse(req, 400, { error: 'Nome da empresa é obrigatório.' });
+      if (!ALLOWED_STATUSES.has(status)) return jsonResponse(req, 400, { error: 'Status inválido.' });
+
+      let safeSlug = generateSlug(slugInput || displayName) || '';
+      if (!safeSlug) safeSlug = `empresa-${Date.now()}`;
+
+      const { data: slugConflict, error: slugConflictError } = await supabaseAdmin
+        .from('tenants')
+        .select('id')
+        .eq('slug', safeSlug)
+        .neq('id', tenantId)
+        .maybeSingle();
+      if (slugConflictError) throw new Error(`Erro ao validar slug: ${slugConflictError.message}`);
+      if (slugConflict) return jsonResponse(req, 409, { error: 'Slug já está em uso por outra empresa.' });
+
+      const { data: updatedTenant, error: tenantUpdateError } = await supabaseAdmin
+        .from('tenants')
+        .update({
+          display_name: displayName,
+          slug: safeSlug,
+          status,
+        })
+        .eq('id', tenantId)
+        .select('id, slug, display_name, status, owner_user_id, updated_at')
+        .single();
+      if (tenantUpdateError) throw new Error(`Erro ao atualizar empresa: ${tenantUpdateError.message}`);
+
+      const registryInput = sanitizeRegistryInput(raw);
+      const { error: registryUpdateError } = await supabaseAdmin
+        .from('tenant_registry')
+        .upsert({
+          tenant_id: tenantId,
+          ...registryInput,
+        }, { onConflict: 'tenant_id' });
+      if (registryUpdateError) throw new Error(`Erro ao atualizar cadastro da empresa: ${registryUpdateError.message}`);
+
+      if (status !== 'active') {
+        await supabaseAdmin
+          .from('tenant_members')
+          .update({ status: 'disabled' })
+          .eq('tenant_id', tenantId)
+          .eq('status', 'active');
+      }
+
+      if (status === 'active') {
+        await supabaseAdmin
+          .from('tenant_members')
+          .update({ status: 'active' })
+          .eq('tenant_id', tenantId)
+          .eq('status', 'disabled');
+      }
+
+      if (updatedTenant?.owner_user_id && ownerName) {
+        await supabaseAdmin
+          .from('user_profiles')
+          .update({ full_name: ownerName })
+          .eq('user_id', updatedTenant.owner_user_id);
+      }
+
+      return jsonResponse(req, 200, { tenant: updatedTenant });
+    }
+
+    if (action === 'set_google_login') {
+      const tenantId = sanitizeUuid(raw.tenant_id);
+      const allowGoogleLogin = raw.allow_google_login === true;
+      if (!tenantId) return jsonResponse(req, 400, { error: 'tenant_id inválido.' });
+
+      const { data: updatedRegistry, error: registryError } = await supabaseAdmin
+        .from('tenant_registry')
+        .upsert({
+          tenant_id: tenantId,
+          allow_google_login: allowGoogleLogin,
+        }, { onConflict: 'tenant_id' })
+        .select('tenant_id, allow_google_login')
+        .single();
+      if (registryError) throw new Error(`Erro ao atualizar permissão Google: ${registryError.message}`);
+
+      return jsonResponse(req, 200, { registry: updatedRegistry });
+    }
+
     if (action === 'set_status') {
-      const raw = payload as Record<string, unknown>;
       const tenantId = sanitizeUuid(raw.tenant_id);
       const status = sanitizeText(raw.status, 20).toLowerCase();
       if (!tenantId) return jsonResponse(req, 400, { error: 'tenant_id inválido.' });
@@ -290,13 +436,18 @@ serve(async (req) => {
           .update({ status: 'disabled' })
           .eq('tenant_id', tenantId)
           .eq('status', 'active');
+      } else {
+        await supabaseAdmin
+          .from('tenant_members')
+          .update({ status: 'active' })
+          .eq('tenant_id', tenantId)
+          .eq('status', 'disabled');
       }
 
       return jsonResponse(req, 200, { tenant: updatedTenant });
     }
 
     if (action === 'delete') {
-      const raw = payload as Record<string, unknown>;
       const tenantId = sanitizeUuid(raw.tenant_id);
       const force = raw.force === true;
       if (!tenantId) return jsonResponse(req, 400, { error: 'tenant_id inválido.' });

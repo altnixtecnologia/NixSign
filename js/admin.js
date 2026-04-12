@@ -234,13 +234,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     const brandingPreviewLine = document.getElementById('branding-preview-line');
     const refreshSystemClientsBtn = document.getElementById('refresh-system-clients-btn');
     const systemClientsFeedback = document.getElementById('system-clients-feedback');
-    const systemClientCreateForm = document.getElementById('system-client-create-form');
+    const openSystemClientModalBtn = document.getElementById('open-system-client-modal-btn');
+    const systemClientModal = document.getElementById('system-client-modal');
+    const closeSystemClientModalBtn = document.getElementById('close-system-client-modal-btn');
+    const cancelSystemClientModalBtn = document.getElementById('cancel-system-client-modal-btn');
+    const systemClientModalTitle = document.getElementById('system-client-modal-title');
+    const systemClientForm = document.getElementById('system-client-form');
+    const systemClientTenantIdInput = document.getElementById('system-client-tenant-id');
     const systemCompanyDisplayNameInput = document.getElementById('system-company-display-name');
     const systemCompanySlugInput = document.getElementById('system-company-slug');
+    const systemCompanyTaxIdInput = document.getElementById('system-company-tax-id');
     const systemOwnerNameInput = document.getElementById('system-owner-name');
     const systemOwnerEmailInput = document.getElementById('system-owner-email');
-    const systemOwnerPasswordInput = document.getElementById('system-owner-password');
+    const systemCompanyPhoneInput = document.getElementById('system-company-phone');
     const systemCompanyStatusInput = document.getElementById('system-company-status');
+    const systemCompanyCepInput = document.getElementById('system-company-cep');
+    const systemCepLookupBtn = document.getElementById('system-cep-lookup-btn');
+    const systemCompanyAddressLineInput = document.getElementById('system-company-address-line');
+    const systemCompanyAddressNumberInput = document.getElementById('system-company-address-number');
+    const systemCompanyAddressComplementInput = document.getElementById('system-company-address-complement');
+    const systemCompanyNeighborhoodInput = document.getElementById('system-company-neighborhood');
+    const systemCompanyCityInput = document.getElementById('system-company-city');
+    const systemCompanyStateInput = document.getElementById('system-company-state');
+    const systemAllowGoogleLoginInput = document.getElementById('system-allow-google-login');
+    const systemTenantsSearchInput = document.getElementById('system-tenants-search-input');
     const systemGeneratedPasswordBox = document.getElementById('system-generated-password-box');
     const systemGeneratedPasswordValue = document.getElementById('system-generated-password-value');
     const systemTenantsList = document.getElementById('system-tenants-list');
@@ -283,6 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let clientsDataCache = [];
     let brandingDataCache = null;
     let systemTenantsCache = [];
+    let systemTenantsFilteredCache = [];
     const isMasterAdmin = String(adminUserData.email || '').toLowerCase() === MASTER_ADMIN_EMAIL;
 
     if (panelVersionLabel) {
@@ -601,6 +619,137 @@ document.addEventListener('DOMContentLoaded', async () => {
         systemClientsFeedback.textContent = message || '';
     }
 
+    function normalizeSearchText(value) {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .trim();
+    }
+
+    function openSystemClientModal() {
+        if (!systemClientModal) return;
+        systemClientModal.classList.add('active');
+    }
+
+    function closeSystemClientModal() {
+        if (!systemClientModal) return;
+        systemClientModal.classList.remove('active');
+    }
+
+    function clearSystemClientForm() {
+        if (systemClientTenantIdInput) systemClientTenantIdInput.value = '';
+        if (systemCompanyDisplayNameInput) systemCompanyDisplayNameInput.value = '';
+        if (systemCompanySlugInput) systemCompanySlugInput.value = '';
+        if (systemCompanyTaxIdInput) systemCompanyTaxIdInput.value = '';
+        if (systemOwnerNameInput) systemOwnerNameInput.value = '';
+        if (systemOwnerEmailInput) systemOwnerEmailInput.value = '';
+        if (systemCompanyPhoneInput) systemCompanyPhoneInput.value = '';
+        if (systemCompanyStatusInput) systemCompanyStatusInput.value = 'active';
+        if (systemCompanyCepInput) systemCompanyCepInput.value = '';
+        if (systemCompanyAddressLineInput) systemCompanyAddressLineInput.value = '';
+        if (systemCompanyAddressNumberInput) systemCompanyAddressNumberInput.value = '';
+        if (systemCompanyAddressComplementInput) systemCompanyAddressComplementInput.value = '';
+        if (systemCompanyNeighborhoodInput) systemCompanyNeighborhoodInput.value = '';
+        if (systemCompanyCityInput) systemCompanyCityInput.value = '';
+        if (systemCompanyStateInput) systemCompanyStateInput.value = '';
+        if (systemAllowGoogleLoginInput) systemAllowGoogleLoginInput.checked = false;
+    }
+
+    function fillSystemClientForm(tenant) {
+        if (!tenant) return;
+        if (systemClientTenantIdInput) systemClientTenantIdInput.value = String(tenant.id || '');
+        if (systemCompanyDisplayNameInput) systemCompanyDisplayNameInput.value = String(tenant.display_name || '');
+        if (systemCompanySlugInput) systemCompanySlugInput.value = String(tenant.slug || '');
+        if (systemCompanyTaxIdInput) systemCompanyTaxIdInput.value = String(tenant.company_tax_id || '');
+        if (systemOwnerNameInput) systemOwnerNameInput.value = String(tenant.owner_name || '');
+        if (systemOwnerEmailInput) systemOwnerEmailInput.value = String(tenant.owner_email || '');
+        if (systemCompanyPhoneInput) systemCompanyPhoneInput.value = String(tenant.phone || '');
+        if (systemCompanyStatusInput) systemCompanyStatusInput.value = String(tenant.status || 'active');
+        if (systemCompanyCepInput) systemCompanyCepInput.value = String(tenant.cep || '');
+        if (systemCompanyAddressLineInput) systemCompanyAddressLineInput.value = String(tenant.address_line || '');
+        if (systemCompanyAddressNumberInput) systemCompanyAddressNumberInput.value = String(tenant.address_number || '');
+        if (systemCompanyAddressComplementInput) systemCompanyAddressComplementInput.value = String(tenant.address_complement || '');
+        if (systemCompanyNeighborhoodInput) systemCompanyNeighborhoodInput.value = String(tenant.neighborhood || '');
+        if (systemCompanyCityInput) systemCompanyCityInput.value = String(tenant.city || '');
+        if (systemCompanyStateInput) systemCompanyStateInput.value = String(tenant.state || '');
+        if (systemAllowGoogleLoginInput) systemAllowGoogleLoginInput.checked = tenant.allow_google_login === true;
+    }
+
+    function prepareSystemClientCreateMode() {
+        clearSystemClientForm();
+        if (systemGeneratedPasswordBox) systemGeneratedPasswordBox.classList.add('hidden');
+        if (systemGeneratedPasswordValue) systemGeneratedPasswordValue.textContent = '';
+        if (systemClientModalTitle) systemClientModalTitle.textContent = 'Nova Empresa';
+        if (systemOwnerEmailInput) systemOwnerEmailInput.disabled = false;
+        openSystemClientModal();
+    }
+
+    function prepareSystemClientEditMode(tenantId) {
+        const tenant = systemTenantsCache.find((item) => String(item.id) === String(tenantId));
+        if (!tenant) {
+            setSystemClientsFeedback('Empresa não encontrada para edição.', 'error');
+            return;
+        }
+        clearSystemClientForm();
+        if (systemGeneratedPasswordBox) systemGeneratedPasswordBox.classList.add('hidden');
+        if (systemGeneratedPasswordValue) systemGeneratedPasswordValue.textContent = '';
+        fillSystemClientForm(tenant);
+        if (systemClientModalTitle) systemClientModalTitle.textContent = `Editar Empresa · ${tenant.display_name || ''}`;
+        if (systemOwnerEmailInput) systemOwnerEmailInput.disabled = true;
+        openSystemClientModal();
+    }
+
+    async function buscarCepSistema() {
+        const rawCep = String(systemCompanyCepInput?.value || '').replace(/\D/g, '');
+        if (rawCep.length !== 8) {
+            setSystemClientsFeedback('Informe um CEP válido com 8 dígitos.', 'error');
+            return;
+        }
+        try {
+            if (systemCepLookupBtn) systemCepLookupBtn.disabled = true;
+            const response = await fetch(`https://viacep.com.br/ws/${rawCep}/json/`);
+            if (!response.ok) throw new Error('Falha ao consultar CEP.');
+            const data = await response.json();
+            if (data?.erro) throw new Error('CEP não encontrado.');
+
+            if (systemCompanyAddressLineInput) systemCompanyAddressLineInput.value = String(data.logradouro || '');
+            if (systemCompanyNeighborhoodInput) systemCompanyNeighborhoodInput.value = String(data.bairro || '');
+            if (systemCompanyCityInput) systemCompanyCityInput.value = String(data.localidade || '');
+            if (systemCompanyStateInput) systemCompanyStateInput.value = String(data.uf || '');
+            setSystemClientsFeedback('CEP localizado com sucesso.', 'success');
+        } catch (error) {
+            setSystemClientsFeedback(`Erro ao buscar CEP: ${error.message}`, 'error');
+        } finally {
+            if (systemCepLookupBtn) systemCepLookupBtn.disabled = false;
+        }
+    }
+
+    function applySystemTenantsFilter() {
+        const term = normalizeSearchText(systemTenantsSearchInput?.value || '');
+        if (!term) {
+            systemTenantsFilteredCache = [...systemTenantsCache];
+            renderSystemTenantsList(systemTenantsFilteredCache);
+            return;
+        }
+
+        systemTenantsFilteredCache = systemTenantsCache.filter((tenant) => {
+            const blob = normalizeSearchText([
+                tenant.display_name,
+                tenant.slug,
+                tenant.owner_email,
+                tenant.owner_name,
+                tenant.company_tax_id,
+                tenant.phone,
+                tenant.city,
+                tenant.state,
+            ].filter(Boolean).join(' '));
+            return blob.includes(term);
+        });
+
+        renderSystemTenantsList(systemTenantsFilteredCache);
+    }
+
     function renderSystemTenantsList(tenants) {
         if (!systemTenantsList) return;
         if (!Array.isArray(tenants) || tenants.length === 0) {
@@ -627,8 +776,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             const safeDisplay = escapeHtml(tenant.display_name || 'Empresa sem nome');
             const safeSlug = escapeHtml(tenant.slug || '-');
             const safeOwner = escapeHtml(tenant.owner_email || '-');
+            const safeTaxId = escapeHtml(tenant.company_tax_id || '-');
+            const safePhone = escapeHtml(tenant.phone || '-');
+            const safeCity = escapeHtml(tenant.city || '-');
+            const googleEnabled = tenant.allow_google_login === true;
             const memberCount = Number(tenant.member_count || 0);
             const createdAt = formatDateTime(tenant.created_at);
+            const toggleButtonLabel = currentStatus === 'active' ? 'Bloquear' : 'Ativar';
+            const toggleNextStatus = currentStatus === 'active' ? 'suspended' : 'active';
+            const googleButtonLabel = googleEnabled ? 'Google: ON' : 'Google: OFF';
+            const googleButtonClass = googleEnabled
+                ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-50'
+                : 'border-slate-300 text-slate-700 hover:bg-slate-100';
 
             return `
                 <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2">
@@ -641,12 +800,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                     <div class="text-xs text-slate-600 space-y-0.5">
                         <p>Proprietário: ${safeOwner}</p>
+                        <p>CNPJ/CPF: ${safeTaxId}</p>
+                        <p>Telefone: ${safePhone}</p>
+                        <p>Cidade: ${safeCity}</p>
                         <p>Membros: ${memberCount}</p>
                         <p>Criada em: ${createdAt}</p>
                     </div>
                     <div class="flex flex-wrap gap-2 pt-1">
-                        <button data-system-tenant-status="${tenant.id}" data-next-status="active" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">Ativar</button>
-                        <button data-system-tenant-status="${tenant.id}" data-next-status="suspended" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">Bloquear</button>
+                        <button data-system-tenant-edit="${tenant.id}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">Editar</button>
+                        <button data-system-tenant-status="${tenant.id}" data-next-status="${toggleNextStatus}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">${toggleButtonLabel}</button>
+                        <button data-system-tenant-google="${tenant.id}" data-google-enabled="${googleEnabled ? '1' : '0'}" class="rounded-md border bg-white px-2 py-1 text-xs ${googleButtonClass}">${googleButtonLabel}</button>
                         <button data-system-tenant-delete="${tenant.id}" class="rounded-md border border-red-300 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50">Excluir</button>
                     </div>
                 </div>
@@ -665,7 +828,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await db.listSystemTenants();
             const tenants = Array.isArray(result?.tenants) ? result.tenants : [];
             systemTenantsCache = tenants;
-            renderSystemTenantsList(tenants);
+            applySystemTenantsFilter();
             setSystemClientsFeedback('Lista de empresas atualizada.', 'success');
         } catch (error) {
             setSystemClientsFeedback(`Erro ao carregar empresas: ${error.message}`, 'error');
@@ -1410,8 +1573,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    if (systemClientCreateForm) {
-        systemClientCreateForm.addEventListener('submit', async (event) => {
+    if (openSystemClientModalBtn) {
+        openSystemClientModalBtn.addEventListener('click', () => {
+            prepareSystemClientCreateMode();
+        });
+    }
+
+    if (closeSystemClientModalBtn) {
+        closeSystemClientModalBtn.addEventListener('click', closeSystemClientModal);
+    }
+
+    if (cancelSystemClientModalBtn) {
+        cancelSystemClientModalBtn.addEventListener('click', closeSystemClientModal);
+    }
+
+    if (systemClientModal) {
+        systemClientModal.addEventListener('click', (event) => {
+            if (event.target === systemClientModal) closeSystemClientModal();
+        });
+    }
+
+    if (systemCepLookupBtn) {
+        systemCepLookupBtn.addEventListener('click', () => {
+            buscarCepSistema();
+        });
+    }
+
+    if (systemCompanyCepInput) {
+        systemCompanyCepInput.addEventListener('blur', () => {
+            const digits = String(systemCompanyCepInput.value || '').replace(/\D/g, '');
+            if (digits.length === 8) {
+                buscarCepSistema();
+            }
+        });
+    }
+
+    if (systemTenantsSearchInput) {
+        systemTenantsSearchInput.addEventListener('input', () => {
+            applySystemTenantsFilter();
+        });
+    }
+
+    if (systemClientForm) {
+        systemClientForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             if (!isMasterAdmin) {
                 setSystemClientsFeedback('Acesso restrito ao usuário master.', 'error');
@@ -1419,39 +1623,79 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             try {
+                const tenantId = String(systemClientTenantIdInput?.value || '').trim();
                 const displayName = String(systemCompanyDisplayNameInput?.value || '').trim();
                 const slug = String(systemCompanySlugInput?.value || '').trim();
+                const companyTaxId = String(systemCompanyTaxIdInput?.value || '').trim();
                 const ownerName = String(systemOwnerNameInput?.value || '').trim();
                 const ownerEmail = String(systemOwnerEmailInput?.value || '').trim().toLowerCase();
-                const ownerPassword = String(systemOwnerPasswordInput?.value || '').trim();
+                const phone = String(systemCompanyPhoneInput?.value || '').trim();
                 const status = String(systemCompanyStatusInput?.value || 'active').trim().toLowerCase();
+                const cep = String(systemCompanyCepInput?.value || '').trim();
+                const addressLine = String(systemCompanyAddressLineInput?.value || '').trim();
+                const addressNumber = String(systemCompanyAddressNumberInput?.value || '').trim();
+                const addressComplement = String(systemCompanyAddressComplementInput?.value || '').trim();
+                const neighborhood = String(systemCompanyNeighborhoodInput?.value || '').trim();
+                const city = String(systemCompanyCityInput?.value || '').trim();
+                const state = String(systemCompanyStateInput?.value || '').trim().toUpperCase();
+                const allowGoogleLogin = systemAllowGoogleLoginInput?.checked === true;
 
                 if (!displayName) throw new Error('Informe o nome da empresa.');
                 if (!ownerEmail) throw new Error('Informe o e-mail do proprietário.');
 
-                const result = await db.createSystemTenant({
-                    display_name: displayName,
-                    slug,
-                    owner_name: ownerName,
-                    owner_email: ownerEmail,
-                    owner_password: ownerPassword || null,
-                    status,
-                });
+                if (!tenantId) {
+                    const result = await db.createSystemTenant({
+                        display_name: displayName,
+                        slug,
+                        owner_name: ownerName,
+                        owner_email: ownerEmail,
+                        status,
+                        company_tax_id: companyTaxId || null,
+                        phone: phone || null,
+                        cep: cep || null,
+                        address_line: addressLine || null,
+                        address_number: addressNumber || null,
+                        address_complement: addressComplement || null,
+                        neighborhood: neighborhood || null,
+                        city: city || null,
+                        state: state || null,
+                        allow_google_login: allowGoogleLogin,
+                    });
 
-                if (systemClientCreateForm) systemClientCreateForm.reset();
-                setSystemClientsFeedback('Empresa cadastrada com sucesso.', 'success');
-
-                const generatedPassword = String(result?.generated_password || '').trim();
-                if (systemGeneratedPasswordBox && systemGeneratedPasswordValue) {
-                    if (generatedPassword) {
-                        systemGeneratedPasswordValue.textContent = generatedPassword;
-                        systemGeneratedPasswordBox.classList.remove('hidden');
-                    } else {
-                        systemGeneratedPasswordValue.textContent = '';
-                        systemGeneratedPasswordBox.classList.add('hidden');
+                    setSystemClientsFeedback('Empresa cadastrada com sucesso.', 'success');
+                    const generatedPassword = String(result?.generated_password || '').trim();
+                    if (systemGeneratedPasswordBox && systemGeneratedPasswordValue) {
+                        if (generatedPassword) {
+                            systemGeneratedPasswordValue.textContent = generatedPassword;
+                            systemGeneratedPasswordBox.classList.remove('hidden');
+                        } else {
+                            systemGeneratedPasswordValue.textContent = '';
+                            systemGeneratedPasswordBox.classList.add('hidden');
+                        }
                     }
+                } else {
+                    await db.updateSystemTenantProfile({
+                        tenant_id: tenantId,
+                        display_name: displayName,
+                        slug,
+                        owner_name: ownerName || null,
+                        status,
+                        company_tax_id: companyTaxId || null,
+                        phone: phone || null,
+                        cep: cep || null,
+                        address_line: addressLine || null,
+                        address_number: addressNumber || null,
+                        address_complement: addressComplement || null,
+                        neighborhood: neighborhood || null,
+                        city: city || null,
+                        state: state || null,
+                    });
+
+                    await db.setSystemTenantGoogleAccess(tenantId, allowGoogleLogin);
+                    setSystemClientsFeedback('Empresa atualizada com sucesso.', 'success');
                 }
 
+                closeSystemClientModal();
                 await carregarClientesSistema();
             } catch (error) {
                 setSystemClientsFeedback(`Erro ao cadastrar empresa: ${error.message}`, 'error');
@@ -1498,8 +1742,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (systemTenantsList) {
         systemTenantsList.addEventListener('click', async (event) => {
             if (!(event.target instanceof Element)) return;
+            const editBtn = event.target.closest('[data-system-tenant-edit]');
             const statusBtn = event.target.closest('[data-system-tenant-status]');
+            const googleBtn = event.target.closest('[data-system-tenant-google]');
             const deleteBtn = event.target.closest('[data-system-tenant-delete]');
+
+            if (editBtn) {
+                const tenantId = String(editBtn.getAttribute('data-system-tenant-edit') || '');
+                if (!tenantId) return;
+                prepareSystemClientEditMode(tenantId);
+                return;
+            }
 
             if (statusBtn) {
                 const tenantId = String(statusBtn.getAttribute('data-system-tenant-status') || '');
@@ -1515,13 +1768,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
+            if (googleBtn) {
+                const tenantId = String(googleBtn.getAttribute('data-system-tenant-google') || '');
+                const enabledNow = String(googleBtn.getAttribute('data-google-enabled') || '0') === '1';
+                if (!tenantId) return;
+                try {
+                    await db.setSystemTenantGoogleAccess(tenantId, !enabledNow);
+                    setSystemClientsFeedback('Permissão de Google atualizada.', 'success');
+                    await carregarClientesSistema();
+                } catch (error) {
+                    setSystemClientsFeedback(`Erro ao alterar Google: ${error.message}`, 'error');
+                }
+                return;
+            }
+
             if (deleteBtn) {
                 const tenantId = String(deleteBtn.getAttribute('data-system-tenant-delete') || '');
                 if (!tenantId) return;
                 const tenant = systemTenantsCache.find((item) => String(item.id) === tenantId);
                 const tenantName = tenant?.display_name || 'esta empresa';
-                const confirmed = window.confirm(`Excluir ${tenantName}? Essa ação remove o tenant do sistema.`);
-                if (!confirmed) return;
+                const token = window.prompt(`Confirmação forte: digite EXCLUIR para remover ${tenantName}.`);
+                if (token !== 'EXCLUIR') return;
 
                 try {
                     await db.deleteSystemTenant(tenantId, false);

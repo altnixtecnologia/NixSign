@@ -384,6 +384,18 @@ export async function updateSystemTenantStatus(tenantId, status) {
     return await invokeMasterTenantAdmin({ action: 'set_status', tenant_id: tenantId, status });
 }
 
+export async function updateSystemTenantProfile(payload) {
+    return await invokeMasterTenantAdmin({ action: 'upsert_profile', ...payload });
+}
+
+export async function setSystemTenantGoogleAccess(tenantId, allowGoogleLogin) {
+    return await invokeMasterTenantAdmin({
+        action: 'set_google_login',
+        tenant_id: tenantId,
+        allow_google_login: allowGoogleLogin === true,
+    });
+}
+
 export async function deleteSystemTenant(tenantId, force = false) {
     return await invokeMasterTenantAdmin({ action: 'delete', tenant_id: tenantId, force: force === true });
 }

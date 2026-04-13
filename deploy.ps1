@@ -77,7 +77,7 @@ function Resolve-ProjectRef([hashtable]$EnvMap) {
     throw "Nao foi possivel descobrir o project_ref do Supabase."
 }
 
-function Resolve-DbUri([hashtable]$EnvMap) {
+function Resolve-DbUri([hashtable]$EnvMap, [string]$ProjectRef) {
     $candidates = @(
         "SUPABASE_DB_URL",
         "DATABASE_URL",
@@ -89,6 +89,28 @@ function Resolve-DbUri([hashtable]$EnvMap) {
         if ($EnvMap.ContainsKey($name) -and $EnvMap[$name]) {
             return $EnvMap[$name]
         }
+    }
+
+    $hasParts =
+        ($EnvMap.ContainsKey("SUPABASE_DB_HOST") -and $EnvMap["SUPABASE_DB_HOST"]) -or
+        ($EnvMap.ContainsKey("SUPABASE_DB_POOLER_HOST") -and $EnvMap["SUPABASE_DB_POOLER_HOST"])
+    if ($hasParts) {
+        if (-not $EnvMap.ContainsKey("SUPABASE_DB_PASSWORD") -or -not $EnvMap["SUPABASE_DB_PASSWORD"]) {
+            throw "SUPABASE_DB_PASSWORD nao encontrado no .env."
+        }
+
+        $dbHost = ""
+        if ($EnvMap.ContainsKey("SUPABASE_DB_HOST") -and $EnvMap["SUPABASE_DB_HOST"]) {
+            $dbHost = $EnvMap["SUPABASE_DB_HOST"]
+        } else {
+            $dbHost = $EnvMap["SUPABASE_DB_POOLER_HOST"]
+        }
+        $dbPort = if ($EnvMap.ContainsKey("SUPABASE_DB_PORT") -and $EnvMap["SUPABASE_DB_PORT"]) { $EnvMap["SUPABASE_DB_PORT"] } else { "6543" }
+        $dbName = if ($EnvMap.ContainsKey("SUPABASE_DB_NAME") -and $EnvMap["SUPABASE_DB_NAME"]) { $EnvMap["SUPABASE_DB_NAME"] } else { "postgres" }
+        $dbUser = if ($EnvMap.ContainsKey("SUPABASE_DB_USER") -and $EnvMap["SUPABASE_DB_USER"]) { $EnvMap["SUPABASE_DB_USER"] } else { "postgres.$ProjectRef" }
+        $dbPass = [uri]::EscapeDataString($EnvMap["SUPABASE_DB_PASSWORD"])
+        $sslMode = if ($EnvMap.ContainsKey("SUPABASE_DB_SSLMODE") -and $EnvMap["SUPABASE_DB_SSLMODE"]) { $EnvMap["SUPABASE_DB_SSLMODE"] } else { "require" }
+        return "postgresql://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${dbName}?sslmode=${sslMode}"
     }
 
     $poolerPath = Join-Path $PSScriptRoot "supabase/.temp/pooler-url"
@@ -107,6 +129,21 @@ function Resolve-DbUri([hashtable]$EnvMap) {
 
     $encodedPassword = [uri]::EscapeDataString($EnvMap["SUPABASE_DB_PASSWORD"])
     return $uriTemplate.Replace("[YOUR-PASSWORD]", $encodedPassword)
+}
+
+function Test-RemoteDbConnection([hashtable]$Conn) {
+    $pgConn = "host=$($Conn.Host) port=$($Conn.Port) dbname=$($Conn.Name) user=$($Conn.User) sslmode=$($Conn.SslMode)"
+    $dockerArgs = @(
+        "run", "--rm",
+        "-e", "PGPASSWORD=$($Conn.Password)",
+        "postgres:16",
+        "psql", $pgConn,
+        "-v", "ON_ERROR_STOP=1",
+        "-c", "select 1;"
+    )
+
+    & docker @dockerArgs | Out-Null
+    return ($LASTEXITCODE -eq 0)
 }
 
 function Convert-DbUriToConnMap([string]$DbUri, [hashtable]$EnvMap) {
@@ -254,8 +291,16 @@ Write-Ok "Project ref: $projectRef"
 
 if (-not $SkipSql) {
     Write-Step "Aplicando SQL remoto"
-    $dbUri = Resolve-DbUri $envMap
+    $dbUri = Resolve-DbUri $envMap $projectRef
     $conn = Convert-DbUriToConnMap -DbUri $dbUri -EnvMap $envMap
+    Write-Host "DB destino: host=$($conn.Host) port=$($conn.Port) db=$($conn.Name) user=$($conn.User)"
+
+    if (-not $DryRun) {
+        Write-Host "Validando conexao com banco remoto..."
+        if (-not (Test-RemoteDbConnection -Conn $conn)) {
+            throw "Falha de autenticacao/conexao no banco. Atualize SUPABASE_DB_URL (recomendado) ou SUPABASE_DB_HOST/USER/PASSWORD no .env."
+        }
+    }
 
     $sqlOrder = @(
         "security_hardening.sql",

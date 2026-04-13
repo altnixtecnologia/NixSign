@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const pdfBuffer = await req.arrayBuffer();
+    const pdfBuffer = new Uint8Array(await req.arrayBuffer());
     const data = await pdf(pdfBuffer);
     const fullText = data.text;
 

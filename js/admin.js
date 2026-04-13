@@ -55,6 +55,29 @@ function formatPhoneNumber(phone) {
     else { return phone; }
 }
 
+function formatCpfCnpj(value) {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 14);
+    if (!digits) return '';
+    if (digits.length <= 11) {
+        return digits
+            .replace(/^(\d{3})(\d)/, '$1.$2')
+            .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+            .replace(/\.(\d{3})(\d)/, '.$1-$2');
+    }
+    return digits
+        .replace(/^(\d{2})(\d)/, '$1.$2')
+        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1/$2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+function attachCpfCnpjMask(input) {
+    if (!input) return;
+    input.addEventListener('input', () => {
+        input.value = formatCpfCnpj(input.value);
+    });
+}
+
 function sanitizeAutoFilledName(value) {
     if (!value) return '';
     let name = String(value).replace(/\s+/g, ' ').trim();
@@ -258,6 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const systemCompanyCityInput = document.getElementById('system-company-city');
     const systemCompanyStateInput = document.getElementById('system-company-state');
     const systemAllowGoogleLoginInput = document.getElementById('system-allow-google-login');
+    const systemAllowGoogleLoginState = document.getElementById('system-allow-google-login-state');
     const systemTenantsSearchInput = document.getElementById('system-tenants-search-input');
     const systemGeneratedPasswordBox = document.getElementById('system-generated-password-box');
     const systemGeneratedPasswordValue = document.getElementById('system-generated-password-value');
@@ -318,6 +342,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (showSystemClientsBtn) {
         showSystemClientsBtn.classList.toggle('hidden', !isMasterAdmin);
     }
+    attachCpfCnpjMask(clientDocumentInput);
+    attachCpfCnpjMask(systemCompanyTaxIdInput);
+    attachCpfCnpjMask(brandingCompanyTaxIdInput);
+    if (systemAllowGoogleLoginInput) {
+        systemAllowGoogleLoginInput.addEventListener('change', updateSystemGoogleToggleState);
+        updateSystemGoogleToggleState();
+    }
 
     function setBrandingFeedback(message, type = 'info') {
         if (!tenantBrandingFeedback) return;
@@ -352,7 +383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         brandingDataCache = data || null;
         if (brandingCompanyDisplayNameInput) brandingCompanyDisplayNameInput.value = data?.company_display_name || '';
         if (brandingCompanyLegalNameInput) brandingCompanyLegalNameInput.value = data?.company_legal_name || '';
-        if (brandingCompanyTaxIdInput) brandingCompanyTaxIdInput.value = data?.company_tax_id || '';
+        if (brandingCompanyTaxIdInput) brandingCompanyTaxIdInput.value = formatCpfCnpj(data?.company_tax_id || '');
         if (brandingPrimaryEmailInput) brandingPrimaryEmailInput.value = data?.primary_email || '';
         if (brandingSecondaryEmailInput) brandingSecondaryEmailInput.value = data?.secondary_email || '';
         if (brandingLogoPublicUrlInput) brandingLogoPublicUrlInput.value = data?.logo_public_url || '';
@@ -633,6 +664,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             .trim();
     }
 
+    function updateSystemGoogleToggleState() {
+        if (!systemAllowGoogleLoginInput || !systemAllowGoogleLoginState) return;
+        systemAllowGoogleLoginState.textContent = systemAllowGoogleLoginInput.checked ? 'Ligado' : 'Desligado';
+    }
+
     function openSystemClientModal() {
         if (!systemClientModal) return;
         systemClientModal.classList.add('active');
@@ -660,6 +696,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (systemCompanyCityInput) systemCompanyCityInput.value = '';
         if (systemCompanyStateInput) systemCompanyStateInput.value = '';
         if (systemAllowGoogleLoginInput) systemAllowGoogleLoginInput.checked = false;
+        updateSystemGoogleToggleState();
     }
 
     function fillSystemClientForm(tenant) {
@@ -667,7 +704,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (systemClientTenantIdInput) systemClientTenantIdInput.value = String(tenant.id || '');
         if (systemCompanyDisplayNameInput) systemCompanyDisplayNameInput.value = String(tenant.display_name || '');
         if (systemCompanySlugInput) systemCompanySlugInput.value = String(tenant.slug || '');
-        if (systemCompanyTaxIdInput) systemCompanyTaxIdInput.value = String(tenant.company_tax_id || '');
+        if (systemCompanyTaxIdInput) systemCompanyTaxIdInput.value = formatCpfCnpj(String(tenant.company_tax_id || ''));
         if (systemOwnerNameInput) systemOwnerNameInput.value = String(tenant.owner_name || '');
         if (systemOwnerEmailInput) systemOwnerEmailInput.value = String(tenant.owner_email || '');
         if (systemCompanyPhoneInput) systemCompanyPhoneInput.value = String(tenant.phone || '');
@@ -680,6 +717,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (systemCompanyCityInput) systemCompanyCityInput.value = String(tenant.city || '');
         if (systemCompanyStateInput) systemCompanyStateInput.value = String(tenant.state || '');
         if (systemAllowGoogleLoginInput) systemAllowGoogleLoginInput.checked = tenant.allow_google_login === true;
+        updateSystemGoogleToggleState();
     }
 
     function prepareSystemClientCreateMode() {
@@ -1717,7 +1755,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (clientNameInput) clientNameInput.value = client.display_name || '';
                 if (clientEmailInput) clientEmailInput.value = client.email || '';
                 if (clientPhoneInput) clientPhoneInput.value = client.phone || '';
-                if (clientDocumentInput) clientDocumentInput.value = client.document_id || '';
+                if (clientDocumentInput) clientDocumentInput.value = formatCpfCnpj(client.document_id || '');
                 if (clientNotesInput) clientNotesInput.value = client.notes || '';
                 setUsersFeedback('Cliente carregado para edição.', 'info');
                 return;

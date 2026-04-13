@@ -91,6 +91,17 @@
         }
         .tabs::-webkit-scrollbar { height: 6px; }
         .tabs::-webkit-scrollbar-thumb { background: #c3d3e8; border-radius: 999px; }
+        @media (max-width: 1024px) {
+            .tabs {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .tabs::-webkit-scrollbar {
+                display: none;
+                width: 0;
+                height: 0;
+            }
+        }
         .browser-tab {
             border: 1px solid transparent;
             border-radius: 10px;
@@ -208,6 +219,96 @@
             letter-spacing: 0.03em;
             text-transform: lowercase;
             opacity: 0.9;
+        }
+        .system-switch-input {
+            position: absolute;
+            left: -9999px;
+        }
+        .system-switch-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .system-switch {
+            position: relative;
+            display: block;
+            width: 28px;
+            height: 18px;
+            padding: 13px;
+            border-radius: 999px;
+            border-bottom: 3px solid color-mix(in srgb, var(--brand) 28%, #9aa8be);
+            box-shadow: inset 0 2px 3px 0 #fff, inset 0 -1px 2px 0 #9aa8be, 0 3px 3px -1px rgba(15, 23, 42, 0.35);
+            cursor: pointer;
+            background: linear-gradient(180deg, #eef3fa 0%, #e2eaf7 100%);
+            transition: .2s ease;
+        }
+        .system-switch::before {
+            content: "";
+            z-index: -1;
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 56px;
+            height: 56px;
+            border-radius: inherit;
+            border: 1px solid color-mix(in srgb, var(--brand) 25%, #c8d3e6);
+            background: linear-gradient(180deg, #dae4f5 0%, #c8d8ee 100%);
+        }
+        .system-switch::after {
+            content: "OFF";
+            position: absolute;
+            top: -28px;
+            left: 9px;
+            color: color-mix(in srgb, var(--ink-soft) 85%, #7f8aa0);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .06em;
+        }
+        .system-switch .bg {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--brand) 70%, #35c56f);
+            opacity: 0.25;
+            transition: opacity .2s ease;
+        }
+        .system-switch i {
+            float: left;
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: #f8fbff;
+            box-shadow: 0 1px 1px 0 rgba(45, 58, 84, 0.35);
+            margin: 2px 1px 2px 2px;
+        }
+        .system-switch i:nth-child(14),
+        .system-switch i:nth-child(15),
+        .system-switch i:nth-child(16),
+        .system-switch i:nth-child(17) {
+            height: 1px;
+        }
+        .system-switch-input:checked + .system-switch {
+            background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 18%, #ffffff), color-mix(in srgb, var(--brand) 28%, #f0f7ff));
+            border: 1px solid color-mix(in srgb, var(--brand) 42%, #8aa6d8);
+            height: 28px;
+            box-shadow: inset 0 2px 3px 0 #fff, inset 0 -1px 2px 0 #8aa6d8;
+        }
+        .system-switch-input:checked + .system-switch::after {
+            content: "ON";
+            color: color-mix(in srgb, var(--brand-dark) 76%, #1f7a49);
+        }
+        .system-switch-input:checked + .system-switch .bg {
+            opacity: 0.55;
+        }
+        .system-switch-state {
+            font-size: 12px;
+            color: var(--ink-soft);
+            min-width: 70px;
         }
         #initial-view {
             margin-bottom: 12px;
@@ -679,7 +780,7 @@
                         </div>
                         <div>
                             <label for="system-company-tax-id" class="block text-sm font-medium">CNPJ/CPF</label>
-                            <input id="system-company-tax-id" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="00.000.000/0001-00">
+                            <input id="system-company-tax-id" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="000.000.000-00 ou 00.000.000/0001-00">
                         </div>
                         <div>
                             <label for="system-owner-name" class="block text-sm font-medium">Responsável</label>
@@ -716,27 +817,42 @@
                             <label for="system-company-address-number" class="block text-sm font-medium">Número</label>
                             <input id="system-company-address-number" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="123">
                         </div>
-                        <div>
-                            <label for="system-company-address-complement" class="block text-sm font-medium">Complemento</label>
-                            <input id="system-company-address-complement" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Sala / bloco">
-                        </div>
-                        <div>
-                            <label for="system-company-neighborhood" class="block text-sm font-medium">Bairro</label>
-                            <input id="system-company-neighborhood" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Bairro">
-                        </div>
-                        <div>
-                            <label for="system-company-city" class="block text-sm font-medium">Cidade</label>
-                            <input id="system-company-city" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Cidade">
-                        </div>
-                        <div>
-                            <label for="system-company-state" class="block text-sm font-medium">UF</label>
-                            <input id="system-company-state" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="SC">
+                        <div class="sm:col-span-2 xl:col-span-4 grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1.7fr_1fr_1fr_0.45fr]">
+                            <div>
+                                <label for="system-company-address-complement" class="block text-sm font-medium">Complemento</label>
+                                <input id="system-company-address-complement" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Sala / bloco">
+                            </div>
+                            <div>
+                                <label for="system-company-neighborhood" class="block text-sm font-medium">Bairro</label>
+                                <input id="system-company-neighborhood" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Bairro">
+                            </div>
+                            <div>
+                                <label for="system-company-city" class="block text-sm font-medium">Cidade</label>
+                                <input id="system-company-city" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Cidade">
+                            </div>
+                            <div>
+                                <label for="system-company-state" class="block text-sm font-medium">UF</label>
+                                <input id="system-company-state" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="SC">
+                            </div>
                         </div>
                         <div class="sm:col-span-2 xl:col-span-4">
-                            <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-                                <input id="system-allow-google-login" type="checkbox" class="h-4 w-4 rounded border-slate-300">
-                                <span>Liberar login Google para essa empresa</span>
-                            </label>
+                            <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-800">Liberar login Google para essa empresa</p>
+                                    <p class="text-xs text-slate-500">Padrão: desligado.</p>
+                                </div>
+                                <div class="system-switch-wrap">
+                                    <input id="system-allow-google-login" type="checkbox" class="system-switch-input">
+                                    <label for="system-allow-google-login" class="system-switch">
+                                        <span class="bg"></span>
+                                        <i></i><i></i><i></i><i></i>
+                                        <i></i><i></i><i></i><i></i>
+                                        <i></i><i></i><i></i><i></i>
+                                        <i></i><i></i><i></i><i></i>
+                                    </label>
+                                    <span id="system-allow-google-login-state" class="system-switch-state">Desligado</span>
+                                </div>
+                            </div>
                         </div>
                         <div class="sm:col-span-2 xl:col-span-4 flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-3">
                             <button id="system-client-delete-btn" type="button" class="hidden rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">

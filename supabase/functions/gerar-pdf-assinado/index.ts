@@ -22,20 +22,102 @@ type TenantBranding = {
   company_google_numeric_id: string;
 };
 
-const DEFAULT_BRANDING: TenantBranding = {
-  company_display_name: 'Altnix Tecnologia',
-  company_legal_name: 'Altnix Tecnologia',
-  company_tax_id: '52.691.191/0001-89',
-  primary_email: 'altnixtecnologia@gmail.com',
-  secondary_email: '',
-  watermark_enabled: true,
-  watermark_mode: 'logo',
-  watermark_image_url: 'https://nlefwzyyhspyqcicfouc.supabase.co/storage/v1/object/public/logo/logo-retangular-branca.png',
-  watermark_text: 'DOCUMENTO ASSINADO DIGITALMENTE',
-  watermark_opacity: 0.15,
-  watermark_scale: 0.30,
-  company_google_numeric_id: '6022773570903540834',
-};
+function buildDefaultWatermarkUrl(supabaseUrl: string): string {
+  const base = String(supabaseUrl || '').replace(/\/+$/, '');
+  if (!base) return '';
+  return `${base}/storage/v1/object/public/logo/logo-retangular-branca.png`;
+}
+
+function getDefaultBranding(supabaseUrl: string): TenantBranding {
+  const envWatermark = sanitizeText(Deno.env.get('DEFAULT_WATERMARK_IMAGE_URL') ?? '', 600);
+  return {
+    company_display_name: 'NixSign',
+    company_legal_name: 'NixSign',
+    company_tax_id: '',
+    primary_email: 'contato@nixsign.app',
+    secondary_email: '',
+    watermark_enabled: true,
+    watermark_mode: 'logo',
+    watermark_image_url: envWatermark || buildDefaultWatermarkUrl(supabaseUrl),
+    watermark_text: 'DOCUMENTO ASSINADO DIGITALMENTE',
+    watermark_opacity: 0.15,
+    watermark_scale: 0.30,
+    company_google_numeric_id: '',
+  };
+}
+
+async function getTenantBrandingConfig(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  tenantId: string | null,
+  supabaseUrl: string,
+): Promise<TenantBranding> {
+  const DEFAULT_BRANDING = getDefaultBranding(supabaseUrl);
+  if (!tenantId) return DEFAULT_BRANDING;
+
+  let brandingData: Record<string, unknown> | null = null;
+  const { data: branding, error: brandingError } = await supabaseAdmin
+    .from('tenant_branding')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (brandingError && !isSchemaMissingError(brandingError)) {
+    throw new Error(`Erro ao carregar branding do tenant: ${brandingError.message}`);
+  }
+  if (branding) brandingData = branding as unknown as Record<string, unknown>;
+
+  let registryData: Record<string, unknown> | null = null;
+  const { data: registry, error: registryError } = await supabaseAdmin
+    .from('tenant_registry')
+    .select('owner_name, owner_email, company_tax_id')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+  if (!registryError && registry) registryData = registry as unknown as Record<string, unknown>;
+
+  let tenantData: Record<string, unknown> | null = null;
+  const { data: tenant, error: tenantError } = await supabaseAdmin
+    .from('tenants')
+    .select('display_name')
+    .eq('id', tenantId)
+    .maybeSingle();
+  if (!tenantError && tenant) tenantData = tenant as unknown as Record<string, unknown>;
+
+  const displayName =
+    sanitizeText(brandingData?.company_display_name, 120) ||
+    sanitizeText(tenantData?.display_name, 120) ||
+    DEFAULT_BRANDING.company_display_name;
+
+  return {
+    company_display_name: displayName,
+    company_legal_name:
+      sanitizeText(brandingData?.company_legal_name, 180) ||
+      sanitizeText(tenantData?.display_name, 120) ||
+      DEFAULT_BRANDING.company_legal_name,
+    company_tax_id:
+      sanitizeText(brandingData?.company_tax_id, 40) ||
+      sanitizeText(registryData?.company_tax_id, 40) ||
+      DEFAULT_BRANDING.company_tax_id,
+    primary_email:
+      sanitizeText(brandingData?.primary_email, 180) ||
+      sanitizeText(registryData?.owner_email, 180) ||
+      DEFAULT_BRANDING.primary_email,
+    secondary_email: sanitizeText(brandingData?.secondary_email, 180) || DEFAULT_BRANDING.secondary_email,
+    watermark_enabled: brandingData?.watermark_enabled !== false,
+    watermark_mode: (['logo', 'text', 'both', 'none'].includes(String(brandingData?.watermark_mode))
+      ? String(brandingData?.watermark_mode)
+      : DEFAULT_BRANDING.watermark_mode) as TenantBranding['watermark_mode'],
+    watermark_image_url:
+      sanitizeText(brandingData?.watermark_image_url, 600) ||
+      sanitizeText(brandingData?.logo_public_url, 600) ||
+      DEFAULT_BRANDING.watermark_image_url,
+    watermark_text: sanitizeText(brandingData?.watermark_text, 120) || DEFAULT_BRANDING.watermark_text,
+    watermark_opacity: toSafeNumber(brandingData?.watermark_opacity, DEFAULT_BRANDING.watermark_opacity, 0.05, 0.50),
+    watermark_scale: toSafeNumber(brandingData?.watermark_scale, DEFAULT_BRANDING.watermark_scale, 0.10, 1.00),
+    company_google_numeric_id:
+      sanitizeText(brandingData?.company_google_numeric_id, 60) ||
+      DEFAULT_BRANDING.company_google_numeric_id,
+  };
+}
 
 function formatDateBrazil(value: unknown): string {
   if (!value) return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -74,38 +156,6 @@ function shouldDrawLogo(branding: TenantBranding): boolean {
 function shouldDrawText(branding: TenantBranding): boolean {
   if (!branding.watermark_enabled) return false;
   return branding.watermark_mode === 'text' || branding.watermark_mode === 'both';
-}
-
-async function getTenantBrandingConfig(supabaseAdmin: ReturnType<typeof createClient>, tenantId: string | null): Promise<TenantBranding> {
-  if (!tenantId) return DEFAULT_BRANDING;
-
-  const { data, error } = await supabaseAdmin
-    .from('tenant_branding')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .maybeSingle();
-
-  if (error) {
-    if (isSchemaMissingError(error)) return DEFAULT_BRANDING;
-    throw new Error(`Erro ao carregar branding do tenant: ${error.message}`);
-  }
-
-  if (!data) return DEFAULT_BRANDING;
-
-  return {
-    company_display_name: sanitizeText(data.company_display_name, 120) || DEFAULT_BRANDING.company_display_name,
-    company_legal_name: sanitizeText(data.company_legal_name, 180) || sanitizeText(data.company_display_name, 120) || DEFAULT_BRANDING.company_legal_name,
-    company_tax_id: sanitizeText(data.company_tax_id, 40) || DEFAULT_BRANDING.company_tax_id,
-    primary_email: sanitizeText(data.primary_email, 180) || DEFAULT_BRANDING.primary_email,
-    secondary_email: sanitizeText(data.secondary_email, 180) || DEFAULT_BRANDING.secondary_email,
-    watermark_enabled: data.watermark_enabled !== false,
-    watermark_mode: (['logo', 'text', 'both', 'none'].includes(String(data.watermark_mode)) ? data.watermark_mode : DEFAULT_BRANDING.watermark_mode) as TenantBranding['watermark_mode'],
-    watermark_image_url: sanitizeText(data.watermark_image_url, 600) || sanitizeText(data.logo_public_url, 600) || DEFAULT_BRANDING.watermark_image_url,
-    watermark_text: sanitizeText(data.watermark_text, 120) || DEFAULT_BRANDING.watermark_text,
-    watermark_opacity: toSafeNumber(data.watermark_opacity, DEFAULT_BRANDING.watermark_opacity, 0.05, 0.50),
-    watermark_scale: toSafeNumber(data.watermark_scale, DEFAULT_BRANDING.watermark_scale, 0.10, 1.00),
-    company_google_numeric_id: sanitizeText(data.company_google_numeric_id, 60) || DEFAULT_BRANDING.company_google_numeric_id,
-  };
 }
 
 function drawStandardSeal(
@@ -178,6 +228,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
+    const runtimeDefaultBranding = getDefaultBranding(Deno.env.get('SUPABASE_URL') ?? '');
 
     const { data: docData, error: docError } = await supabaseAdmin
       .from('documentos')
@@ -190,7 +241,7 @@ serve(async (req) => {
     if (!signData) throw new Error('Assinatura não encontrada.');
 
     const tenantId = String(docData.tenant_id ?? signData.tenant_id ?? '').trim() || null;
-    const branding = await getTenantBrandingConfig(supabaseAdmin, tenantId);
+    const branding = await getTenantBrandingConfig(supabaseAdmin, tenantId, Deno.env.get('SUPABASE_URL') ?? '');
 
     let clientGoogleNumericId = 'N/A';
     try {
@@ -337,12 +388,12 @@ serve(async (req) => {
 
     const adminDetails = {
       nome: branding.company_legal_name || branding.company_display_name,
-      email: docData.admin_email || branding.primary_email || DEFAULT_BRANDING.primary_email,
-      cpf_cnpj: branding.company_tax_id || DEFAULT_BRANDING.company_tax_id,
+      email: docData.admin_email || branding.primary_email || runtimeDefaultBranding.primary_email,
+      cpf_cnpj: branding.company_tax_id || runtimeDefaultBranding.company_tax_id,
       data: signedAtBrazil,
       ip: docData.admin_ip || 'IP não registrado',
       id_auth: String(docData.admin_id || 'Admin'),
-      company_google_numeric_id: branding.company_google_numeric_id || DEFAULT_BRANDING.company_google_numeric_id,
+      company_google_numeric_id: branding.company_google_numeric_id || runtimeDefaultBranding.company_google_numeric_id,
     };
 
     const clientDetails = {
@@ -377,7 +428,7 @@ serve(async (req) => {
     const { data: publicUrlData } = supabaseAdmin.storage.from('documentos').getPublicUrl(signedFileName);
 
     if (resendApiKey && publicUrlData?.publicUrl && signData.email_signatario) {
-      const signOffName = branding.company_display_name || DEFAULT_BRANDING.company_display_name;
+      const signOffName = branding.company_display_name || runtimeDefaultBranding.company_display_name;
       const emailHtml = `
         <div style="font-family: Helvetica, Arial, sans-serif; color: #333; line-height: 1.6;">
             <h2 style="color: #111;">Documento Assinado</h2>

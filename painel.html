@@ -49,6 +49,18 @@
                 linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 40%),
                 var(--bg);
             color: var(--ink);
+            height: 100dvh;
+            overflow: hidden;
+        }
+        .app-shell {
+            width: 100%;
+            max-width: 80rem;
+            height: 100dvh;
+            margin: 0 auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
         .panel-topbar {
             border: 1px solid var(--line-strong);
@@ -57,9 +69,9 @@
             box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
             backdrop-filter: blur(8px);
             padding: 14px 16px;
-            position: sticky;
-            top: 10px;
+            position: relative;
             z-index: 40;
+            flex-shrink: 0;
         }
         .panel-topbar-grid {
             display: grid;
@@ -71,10 +83,12 @@
             border: 1px solid var(--line-strong);
             background: var(--surface-strong);
             border-radius: 16px;
-            min-height: calc(100vh - 190px);
+            min-height: 0;
+            flex: 1 1 auto;
             box-shadow: var(--shadow);
             backdrop-filter: blur(8px);
-            margin-top: 12px;
+            margin-top: 0;
+            overflow: auto;
         }
         .panel-nav-wrap {
             margin-top: 12px;
@@ -82,6 +96,14 @@
             border-top: 1px solid var(--line);
             display: grid;
             gap: 8px;
+        }
+        .workspace-section-sticky {
+            position: sticky;
+            top: -1px;
+            z-index: 18;
+            background: color-mix(in srgb, var(--surface-strong) 96%, transparent);
+            backdrop-filter: blur(6px);
+            padding-top: 2px;
         }
         .tabs {
             display: flex;
@@ -232,82 +254,48 @@
             display: inline-flex;
             align-items: center;
             gap: 10px;
+            padding: 8px 10px;
+            border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--line));
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--surface-strong) 94%, transparent);
+            flex-shrink: 0;
         }
         .system-switch {
             position: relative;
             display: block;
-            width: 28px;
-            height: 18px;
-            padding: 13px;
-            border-radius: 999px;
-            border-bottom: 3px solid color-mix(in srgb, var(--brand) 28%, #9aa8be);
-            box-shadow: inset 0 2px 3px 0 #fff, inset 0 -1px 2px 0 #9aa8be, 0 3px 3px -1px rgba(15, 23, 42, 0.35);
-            cursor: pointer;
-            background: linear-gradient(180deg, #eef3fa 0%, #e2eaf7 100%);
-            transition: .2s ease;
-        }
-        .system-switch::before {
-            content: "";
-            z-index: -1;
-            position: absolute;
-            top: -5px;
-            left: -5px;
             width: 56px;
-            height: 56px;
-            border-radius: inherit;
-            border: 1px solid color-mix(in srgb, var(--brand) 25%, #c8d3e6);
-            background: linear-gradient(180deg, #dae4f5 0%, #c8d8ee 100%);
+            height: 30px;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--line));
+            cursor: pointer;
+            background: color-mix(in srgb, var(--surface-strong) 92%, #dfe8fb);
+            transition: .2s ease;
+            overflow: hidden;
         }
         .system-switch::after {
-            content: "OFF";
+            content: "";
             position: absolute;
-            top: -28px;
-            left: 9px;
-            color: color-mix(in srgb, var(--ink-soft) 85%, #7f8aa0);
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: .06em;
+            top: 3px;
+            left: 3px;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            background: #ffffff;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+            transition: transform .2s ease;
         }
         .system-switch .bg {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: -1;
-            width: 54px;
-            height: 54px;
-            border-radius: 50%;
-            background: color-mix(in srgb, var(--brand) 70%, #35c56f);
-            opacity: 0.25;
-            transition: opacity .2s ease;
+            display: none;
         }
         .system-switch i {
-            float: left;
-            width: 3px;
-            height: 3px;
-            border-radius: 50%;
-            background: #f8fbff;
-            box-shadow: 0 1px 1px 0 rgba(45, 58, 84, 0.35);
-            margin: 2px 1px 2px 2px;
-        }
-        .system-switch i:nth-child(14),
-        .system-switch i:nth-child(15),
-        .system-switch i:nth-child(16),
-        .system-switch i:nth-child(17) {
-            height: 1px;
+            display: none;
         }
         .system-switch-input:checked + .system-switch {
-            background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 18%, #ffffff), color-mix(in srgb, var(--brand) 28%, #f0f7ff));
-            border: 1px solid color-mix(in srgb, var(--brand) 42%, #8aa6d8);
-            height: 28px;
-            box-shadow: inset 0 2px 3px 0 #fff, inset 0 -1px 2px 0 #8aa6d8;
+            background: color-mix(in srgb, var(--brand) 80%, #1d4ed8);
+            border-color: color-mix(in srgb, var(--brand) 70%, #1d4ed8);
         }
         .system-switch-input:checked + .system-switch::after {
-            content: "ON";
-            color: color-mix(in srgb, var(--brand-dark) 76%, #1f7a49);
-        }
-        .system-switch-input:checked + .system-switch .bg {
-            opacity: 0.55;
+            transform: translateX(26px);
         }
         .system-switch-state {
             font-size: 12px;
@@ -390,6 +378,79 @@
         .quick-upload-bar .btn.is-loaded > img {
             animation: appear .55s ease-in-out;
         }
+        .panel-toast {
+            position: fixed;
+            right: 16px;
+            top: 16px;
+            width: min(360px, calc(100vw - 24px));
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: color-mix(in srgb, var(--surface-strong) 97%, transparent);
+            box-shadow: 0 16px 34px rgba(15, 23, 42, 0.2);
+            z-index: 120;
+            overflow: hidden;
+            display: none;
+        }
+        .panel-toast.active {
+            display: block;
+        }
+        .panel-toast.is-success {
+            border-color: color-mix(in srgb, #16a34a 40%, var(--line));
+        }
+        .panel-toast.is-error {
+            border-color: color-mix(in srgb, #dc2626 50%, var(--line));
+        }
+        .panel-toast__content {
+            padding: 12px 14px 10px;
+            display: grid;
+            gap: 4px;
+            position: relative;
+        }
+        .panel-toast__title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+        .panel-toast__message {
+            font-size: 12px;
+            color: var(--ink-soft);
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .panel-toast__close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: color-mix(in srgb, var(--surface-strong) 95%, transparent);
+            color: var(--ink-soft);
+            cursor: pointer;
+        }
+        .panel-toast__close:hover {
+            color: var(--ink);
+            border-color: color-mix(in srgb, var(--brand) 40%, var(--line));
+        }
+        .panel-toast__progress {
+            height: 3px;
+            transform-origin: left center;
+            animation: panel-toast-progress 3000ms linear forwards;
+        }
+        .panel-toast.is-success .panel-toast__progress {
+            background: linear-gradient(90deg, #16a34a, #22c55e);
+        }
+        .panel-toast.is-error .panel-toast__progress {
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+        }
+        .panel-toast.is-sticky .panel-toast__progress {
+            display: none;
+        }
+        @keyframes panel-toast-progress {
+            from { transform: scaleX(1); }
+            to { transform: scaleX(0); }
+        }
         @keyframes extend {
             0% { transform: scale(1); }
             10% { transform: scale(1.02); }
@@ -407,9 +468,11 @@
             100% { opacity: 0; }
         }
         @media (max-width: 768px) {
+            .app-shell {
+                padding: 10px;
+            }
             .panel-topbar {
                 padding: 12px;
-                top: 8px;
             }
             .panel-topbar-grid {
                 grid-template-columns: 1fr;
@@ -427,7 +490,10 @@
                 align-items: flex-start;
             }
             .workspace {
-                min-height: calc(100vh - 230px);
+                min-height: 0;
+            }
+            .workspace-section-sticky {
+                top: -1px;
             }
             .quick-upload-bar {
                 padding: 10px;
@@ -447,8 +513,8 @@
         }
     </style>
 </head>
-<body class="min-h-screen p-3 sm:p-5">
-    <div class="mx-auto w-full max-w-7xl">
+<body>
+    <div class="app-shell">
         <header class="panel-topbar mb-3">
             <div class="panel-topbar-grid">
                 <div class="panel-brand">
@@ -639,7 +705,7 @@
             </section>
 
             <section id="users-view" class="hidden space-y-6">
-                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-slate-200 pb-4">
+                <div class="workspace-section-sticky flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-slate-200 pb-4">
                     <div>
                         <h2 class="text-2xl font-bold">Gestão de Usuários</h2>
                         <p class="text-sm text-[var(--ink-soft)]">Gerencie acessos da empresa e convites de novos membros.</p>
@@ -962,6 +1028,15 @@
                 <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded text-sm btn-disabled">Confirmar</button>
             </div>
         </div>
+    </div>
+
+    <div id="panel-toast" class="panel-toast" role="status" aria-live="polite">
+        <div class="panel-toast__content">
+            <button id="panel-toast-close" class="panel-toast__close" type="button" aria-label="Fechar notificação">&times;</button>
+            <strong id="panel-toast-title" class="panel-toast__title">Concluído</strong>
+            <span id="panel-toast-message" class="panel-toast__message"></span>
+        </div>
+        <div id="panel-toast-progress" class="panel-toast__progress"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

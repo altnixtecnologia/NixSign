@@ -1,7 +1,7 @@
 // js/admin.js
 // VERSÃO FINAL CORRIGIDA
 
-import { SITE_BASE_URL, ITENS_PER_PAGE } from './config.js';
+import { SITE_BASE_URL, ITENS_PER_PAGE, SUPABASE_URL } from './config.js';
 import * as db from './supabaseService.js';
 import { extractDataFromPdf } from './pdfHandler.js';
 
@@ -44,6 +44,17 @@ const TENANT_ROLE_LABEL = {
 
 const MASTER_ADMIN_EMAIL = 'altnixtecnologia@gmail.com';
 const PANEL_APP_VERSION = 'v.26.04';
+const DEFAULT_WATERMARK_URL = String(SUPABASE_URL || '').trim()
+    ? `${String(SUPABASE_URL).replace(/\/+$/, '')}/storage/v1/object/public/logo/logo-retangular-branca.png`
+    : '';
+const DEFAULT_BRANDING_PRESET = {
+    watermark_enabled: true,
+    watermark_mode: 'logo',
+    watermark_image_url: DEFAULT_WATERMARK_URL,
+    watermark_text: 'DOCUMENTO ASSINADO DIGITALMENTE',
+    watermark_opacity: 0.15,
+    watermark_scale: 0.30,
+};
 
 // --- ESTADO GLOBAL ---
 let adminUserData = { id: null, email: null }; 
@@ -294,6 +305,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
     const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
     const deleteCheckbox = document.getElementById('delete-checkbox');
+    const panelToast = document.getElementById('panel-toast');
+    const panelToastTitle = document.getElementById('panel-toast-title');
+    const panelToastMessage = document.getElementById('panel-toast-message');
+    const panelToastProgress = document.getElementById('panel-toast-progress');
+    const panelToastClose = document.getElementById('panel-toast-close');
     
     // Checkboxes e Navegação
     const skipTecnicoCheckbox = document.getElementById('skip-tecnico-checkbox');
@@ -318,6 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentSearchTerm = '';
     let debounceTimer;
     let docIdParaExcluir = null;
+    let panelToastTimer = null;
     let localExtractedData = {};
     let workspaceContext = null;
     let usersDataCache = [];
@@ -380,19 +397,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function applyBrandingForm(data = null) {
-        brandingDataCache = data || null;
-        if (brandingCompanyDisplayNameInput) brandingCompanyDisplayNameInput.value = data?.company_display_name || '';
-        if (brandingCompanyLegalNameInput) brandingCompanyLegalNameInput.value = data?.company_legal_name || '';
-        if (brandingCompanyTaxIdInput) brandingCompanyTaxIdInput.value = formatCpfCnpj(data?.company_tax_id || '');
-        if (brandingPrimaryEmailInput) brandingPrimaryEmailInput.value = data?.primary_email || '';
-        if (brandingSecondaryEmailInput) brandingSecondaryEmailInput.value = data?.secondary_email || '';
-        if (brandingLogoPublicUrlInput) brandingLogoPublicUrlInput.value = data?.logo_public_url || '';
-        if (brandingWatermarkEnabledInput) brandingWatermarkEnabledInput.checked = data?.watermark_enabled !== false;
-        if (brandingWatermarkModeInput) brandingWatermarkModeInput.value = data?.watermark_mode || 'logo';
-        if (brandingWatermarkImageUrlInput) brandingWatermarkImageUrlInput.value = data?.watermark_image_url || '';
-        if (brandingWatermarkTextInput) brandingWatermarkTextInput.value = data?.watermark_text || 'DOCUMENTO ASSINADO DIGITALMENTE';
-        if (brandingWatermarkOpacityInput) brandingWatermarkOpacityInput.value = String(data?.watermark_opacity ?? 0.15);
-        if (brandingWatermarkScaleInput) brandingWatermarkScaleInput.value = String(data?.watermark_scale ?? 0.30);
+        const resolved = {
+            ...(data || {}),
+        };
+        resolved.watermark_enabled = data?.watermark_enabled !== false;
+        resolved.watermark_mode = data?.watermark_mode || DEFAULT_BRANDING_PRESET.watermark_mode;
+        resolved.watermark_image_url =
+            data?.watermark_image_url ||
+            data?.logo_public_url ||
+            DEFAULT_BRANDING_PRESET.watermark_image_url;
+        resolved.watermark_text = data?.watermark_text || DEFAULT_BRANDING_PRESET.watermark_text;
+        resolved.watermark_opacity = data?.watermark_opacity ?? DEFAULT_BRANDING_PRESET.watermark_opacity;
+        resolved.watermark_scale = data?.watermark_scale ?? DEFAULT_BRANDING_PRESET.watermark_scale;
+
+        brandingDataCache = resolved;
+        if (brandingCompanyDisplayNameInput) brandingCompanyDisplayNameInput.value = resolved.company_display_name || '';
+        if (brandingCompanyLegalNameInput) brandingCompanyLegalNameInput.value = resolved.company_legal_name || '';
+        if (brandingCompanyTaxIdInput) brandingCompanyTaxIdInput.value = formatCpfCnpj(resolved.company_tax_id || '');
+        if (brandingPrimaryEmailInput) brandingPrimaryEmailInput.value = resolved.primary_email || '';
+        if (brandingSecondaryEmailInput) brandingSecondaryEmailInput.value = resolved.secondary_email || '';
+        if (brandingLogoPublicUrlInput) brandingLogoPublicUrlInput.value = resolved.logo_public_url || '';
+        if (brandingWatermarkEnabledInput) brandingWatermarkEnabledInput.checked = resolved.watermark_enabled !== false;
+        if (brandingWatermarkModeInput) brandingWatermarkModeInput.value = resolved.watermark_mode || 'logo';
+        if (brandingWatermarkImageUrlInput) brandingWatermarkImageUrlInput.value = resolved.watermark_image_url || '';
+        if (brandingWatermarkTextInput) brandingWatermarkTextInput.value = resolved.watermark_text || DEFAULT_BRANDING_PRESET.watermark_text;
+        if (brandingWatermarkOpacityInput) brandingWatermarkOpacityInput.value = String(resolved.watermark_opacity ?? DEFAULT_BRANDING_PRESET.watermark_opacity);
+        if (brandingWatermarkScaleInput) brandingWatermarkScaleInput.value = String(resolved.watermark_scale ?? DEFAULT_BRANDING_PRESET.watermark_scale);
         updateBrandingPreview();
     }
 
@@ -656,6 +686,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         systemClientsFeedback.textContent = message || '';
     }
 
+    function hidePanelToast() {
+        if (!panelToast) return;
+        if (panelToastTimer) {
+            clearTimeout(panelToastTimer);
+            panelToastTimer = null;
+        }
+        panelToast.classList.remove('active', 'is-success', 'is-error', 'is-sticky');
+    }
+
+    function showPanelToast({
+        type = 'success',
+        title = 'Concluído',
+        message = '',
+        duration = 3000,
+        sticky = false,
+    } = {}) {
+        if (!panelToast || !panelToastTitle || !panelToastMessage) return;
+        hidePanelToast();
+        panelToastTitle.textContent = title;
+        panelToastMessage.textContent = message;
+        panelToast.classList.add('active', type === 'error' ? 'is-error' : 'is-success');
+        panelToast.classList.toggle('is-sticky', sticky === true);
+
+        if (panelToastProgress && !sticky) {
+            panelToastProgress.style.animation = 'none';
+            void panelToastProgress.offsetWidth;
+            panelToastProgress.style.animation = `panel-toast-progress ${duration}ms linear forwards`;
+        }
+
+        if (!sticky) {
+            panelToastTimer = setTimeout(() => {
+                hidePanelToast();
+            }, duration);
+        }
+    }
+
     function normalizeSearchText(value) {
         return String(value || '')
             .normalize('NFD')
@@ -870,6 +936,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             setSystemClientsFeedback('', 'success');
         } catch (error) {
             setSystemClientsFeedback(`Erro ao carregar empresas: ${error.message}`, 'error');
+            showPanelToast({
+                type: 'error',
+                title: 'Falha ao carregar',
+                message: `Empresas do sistema: ${error.message}`,
+                sticky: true,
+            });
             if (systemTenantsList) {
                 systemTenantsList.innerHTML = '<p class="col-span-full text-sm text-red-600">Falha ao carregar empresas.</p>';
             }
@@ -1514,6 +1586,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     if(cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', fecharModalExclusao);
     if(confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', executarExclusao);
+    if(panelToastClose) panelToastClose.addEventListener('click', hidePanelToast);
 
     if(documentList) {
         documentList.addEventListener('click', async (e) => { 
@@ -1745,6 +1818,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
 
                     setSystemClientsFeedback('', 'success');
+                    showPanelToast({
+                        type: 'success',
+                        title: 'Empresa salva',
+                        message: 'Cadastro concluído com sucesso.',
+                        duration: 3000,
+                    });
                     const generatedPassword = String(result?.generated_password || '').trim();
                     if (systemGeneratedPasswordBox && systemGeneratedPasswordValue) {
                         if (generatedPassword) {
@@ -1775,12 +1854,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     await db.setSystemTenantGoogleAccess(tenantId, allowGoogleLogin);
                     setSystemClientsFeedback('', 'success');
+                    showPanelToast({
+                        type: 'success',
+                        title: 'Empresa atualizada',
+                        message: 'Alterações salvas com sucesso.',
+                        duration: 3000,
+                    });
                 }
 
                 closeSystemClientModal();
                 await carregarClientesSistema();
             } catch (error) {
                 setSystemClientsFeedback(`Erro ao salvar empresa: ${error.message}`, 'error');
+                showPanelToast({
+                    type: 'error',
+                    title: 'Falha ao salvar',
+                    message: String(error.message || 'Erro desconhecido ao salvar empresa.'),
+                    sticky: true,
+                });
             }
         });
     }
@@ -1834,9 +1925,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 try {
                     await db.updateSystemTenantStatus(tenantId, nextStatus);
                     setSystemClientsFeedback('', 'success');
+                    showPanelToast({
+                        type: 'success',
+                        title: 'Status atualizado',
+                        message: 'Situação da empresa alterada.',
+                        duration: 3000,
+                    });
                     await carregarClientesSistema();
                 } catch (error) {
                     setSystemClientsFeedback(`Erro ao atualizar status: ${error.message}`, 'error');
+                    showPanelToast({
+                        type: 'error',
+                        title: 'Falha ao atualizar',
+                        message: String(error.message || 'Erro ao atualizar status da empresa.'),
+                        sticky: true,
+                    });
                 }
                 return;
             }
@@ -1863,6 +1966,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await db.deleteSystemTenant(tenantId, false);
                 closeSystemClientModal();
                 setSystemClientsFeedback('', 'success');
+                showPanelToast({
+                    type: 'success',
+                    title: 'Empresa excluída',
+                    message: 'Remoção concluída.',
+                    duration: 3000,
+                });
                 await carregarClientesSistema();
             } catch (error) {
                 const msg = String(error?.message || '');
@@ -1873,12 +1982,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                         await db.deleteSystemTenant(tenantId, true);
                         closeSystemClientModal();
                         setSystemClientsFeedback('', 'success');
+                        showPanelToast({
+                            type: 'success',
+                            title: 'Exclusão forçada',
+                            message: 'Empresa removida com sucesso.',
+                            duration: 3000,
+                        });
                         await carregarClientesSistema();
                     } catch (forceError) {
                         setSystemClientsFeedback(`Erro ao excluir empresa: ${forceError.message}`, 'error');
+                        showPanelToast({
+                            type: 'error',
+                            title: 'Falha ao excluir',
+                            message: String(forceError.message || 'Erro ao excluir empresa.'),
+                            sticky: true,
+                        });
                     }
                 } else {
                     setSystemClientsFeedback(`Erro ao excluir empresa: ${error.message}`, 'error');
+                    showPanelToast({
+                        type: 'error',
+                        title: 'Falha ao excluir',
+                        message: String(error.message || 'Erro ao excluir empresa.'),
+                        sticky: true,
+                    });
                 }
             }
         });
@@ -1904,8 +2031,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (accountNewPasswordInput) accountNewPasswordInput.value = '';
                 if (accountNewPasswordConfirmInput) accountNewPasswordConfirmInput.value = '';
                 setUsersFeedback('Senha atualizada com sucesso.', 'success');
+                showPanelToast({
+                    type: 'success',
+                    title: 'Senha atualizada',
+                    message: 'Alteração concluída com sucesso.',
+                    duration: 3000,
+                });
             } catch (error) {
                 setUsersFeedback(`Erro ao atualizar senha: ${error.message}`, 'error');
+                showPanelToast({
+                    type: 'error',
+                    title: 'Falha ao atualizar senha',
+                    message: String(error.message || 'Erro ao atualizar senha.'),
+                    sticky: true,
+                });
             }
         });
     }
@@ -1944,8 +2083,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const saved = await db.upsertTenantBranding(payload);
                 applyBrandingForm(saved);
                 setBrandingFeedback('Configurações de marca salvas com sucesso.', 'success');
+                showPanelToast({
+                    type: 'success',
+                    title: 'Configurações salvas',
+                    message: 'Marca e assinatura atualizadas.',
+                    duration: 3000,
+                });
             } catch (error) {
                 setBrandingFeedback(`Erro ao salvar branding: ${error.message}`, 'error');
+                showPanelToast({
+                    type: 'error',
+                    title: 'Falha ao salvar',
+                    message: String(error.message || 'Erro ao salvar marca e assinatura.'),
+                    sticky: true,
+                });
             }
         });
 

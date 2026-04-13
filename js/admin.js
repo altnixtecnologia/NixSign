@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const inviteUserForm = document.getElementById('invite-user-form');
     const inviteEmailInput = document.getElementById('invite-email-input');
     const inviteNameInput = document.getElementById('invite-name-input');
-    const inviteRoleSelect = document.getElementById('invite-role-select');
+    const inviteTenantSelect = document.getElementById('invite-tenant-select');
     const tenantInviteList = document.getElementById('tenant-invite-list');
     const clientForm = document.getElementById('client-form');
     const clientFormResetBtn = document.getElementById('client-form-reset-btn');
@@ -902,6 +902,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? 'bg-green-100 text-green-700 border-green-200'
                 : 'bg-amber-100 text-amber-700 border-amber-200';
             const isSelf = member.user_id === currentUserId;
+            const isOwner = member.role === 'owner';
+            const canEditRole = !isSelf && !isOwner;
 
             const roleOptions = ['owner', 'admin', 'manager', 'member', 'billing']
                 .map((role) => `<option value="${role}" ${member.role === role ? 'selected' : ''}>${TENANT_ROLE_LABEL[role] || role}</option>`)
@@ -917,12 +919,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${statusClass}">${statusLabel}</span>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <select data-member-role-select="${member.id}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs">
-                            ${roleOptions}
-                        </select>
-                        <button data-member-role-save="${member.id}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">
-                            Salvar Perfil
-                        </button>
+                        ${canEditRole ? `
+                            <select data-member-role-select="${member.id}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs">
+                                ${roleOptions}
+                            </select>
+                            <button data-member-role-save="${member.id}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">
+                                Salvar Perfil
+                            </button>
+                        ` : `
+                            <span class="inline-flex items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700">
+                                ${isOwner ? 'Proprietário (fixo)' : (TENANT_ROLE_LABEL[member.role] || member.role)}
+                            </span>
+                        `}
                         ${isSelf ? '<span class="text-xs text-slate-500">Seu usuário</span>' : `
                             <button data-member-toggle-status="${member.id}" data-next-status="${member.status === 'active' ? 'disabled' : 'active'}" class="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-100">
                                 ${member.status === 'active' ? 'Desativar' : 'Ativar'}
@@ -1052,7 +1060,44 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    async function carregarEmpresasNoConvite() {
+        if (!inviteTenantSelect) return;
+
+        try {
+            if (isMasterAdmin) {
+                inviteTenantSelect.disabled = false;
+                inviteTenantSelect.innerHTML = '<option value="">Carregando empresas...</option>';
+                const result = await db.listSystemTenants();
+                const tenants = Array.isArray(result?.tenants) ? result.tenants : [];
+                if (!tenants.length) {
+                    inviteTenantSelect.innerHTML = '<option value="">Nenhuma empresa cadastrada</option>';
+                    return;
+                }
+
+                inviteTenantSelect.innerHTML = tenants
+                    .map((tenant) => `<option value="${escapeHtml(tenant.id)}">${escapeHtml(tenant.display_name || tenant.slug || 'Empresa sem nome')}</option>`)
+                    .join('');
+
+                const currentTenant = String(workspaceContext?.tenantId || '');
+                const hasCurrent = tenants.some((tenant) => String(tenant.id) === currentTenant);
+                inviteTenantSelect.value = hasCurrent ? currentTenant : String(tenants[0]?.id || '');
+                return;
+            }
+
+            const tenantId = String(workspaceContext?.tenantId || '');
+            const tenantName = String(workspaceContext?.tenantName || 'Minha empresa');
+            inviteTenantSelect.innerHTML = `<option value="${escapeHtml(tenantId)}">${escapeHtml(tenantName)}</option>`;
+            inviteTenantSelect.value = tenantId;
+            inviteTenantSelect.disabled = true;
+        } catch (error) {
+            inviteTenantSelect.innerHTML = '<option value="">Falha ao carregar empresas</option>';
+            inviteTenantSelect.disabled = true;
+            setUsersFeedback(`Erro ao carregar empresas no convite: ${error.message}`, 'error');
+        }
+    }
+
     async function carregarGestaoUsuarios() {
+        await carregarEmpresasNoConvite();
         if (!workspaceContext?.tenantId) {
             setUsersFeedback('Gestão de usuários/clientes será habilitada após rodar os SQLs de tenant no banco.', 'info');
             setBrandingFeedback('Configurações de marca serão habilitadas após estruturar os SQLs de tenant.', 'info');
@@ -1496,25 +1541,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (inviteUserForm) {
         inviteUserForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-            if (!workspaceContext?.tenantId) {
-                setUsersFeedback('Workspace não identificado.', 'error');
-                return;
-            }
 
             try {
                 const email = String(inviteEmailInput?.value || '').trim().toLowerCase();
                 const invitedName = String(inviteNameInput?.value || '').trim();
-                const role = String(inviteRoleSelect?.value || 'member');
+                const selectedTenantId = String(inviteTenantSelect?.value || workspaceContext?.tenantId || '').trim();
                 if (!email) throw new Error('Informe um e-mail válido.');
+                if (!selectedTenantId) throw new Error('Selecione a empresa para este convite.');
 
                 await db.createTenantInvite({
-                    tenantId: workspaceContext.tenantId,
+                    tenantId: selectedTenantId,
                     email,
                     invitedName: invitedName || null,
-                    role
+                    role: 'member'
                 });
 
+                const keepTenant = selectedTenantId;
                 if (inviteUserForm) inviteUserForm.reset();
+                if (inviteTenantSelect) inviteTenantSelect.value = keepTenant;
                 setUsersFeedback('Convite gerado com sucesso.', 'success');
                 await carregarGestaoUsuarios();
             } catch (error) {

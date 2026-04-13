@@ -57,6 +57,9 @@
             box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
             backdrop-filter: blur(8px);
             padding: 14px 16px;
+            position: sticky;
+            top: 10px;
+            z-index: 40;
         }
         .panel-topbar-grid {
             display: grid;
@@ -71,6 +74,7 @@
             min-height: calc(100vh - 190px);
             box-shadow: var(--shadow);
             backdrop-filter: blur(8px);
+            margin-top: 12px;
         }
         .panel-nav-wrap {
             margin-top: 12px;
@@ -405,6 +409,7 @@
         @media (max-width: 768px) {
             .panel-topbar {
                 padding: 12px;
+                top: 8px;
             }
             .panel-topbar-grid {
                 grid-template-columns: 1fr;
@@ -663,12 +668,9 @@
                                 <input id="invite-name-input" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Nome da pessoa">
                             </div>
                             <div>
-                                <label for="invite-role-select" class="block text-sm font-medium">Perfil de Acesso</label>
-                                <select id="invite-role-select" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
-                                    <option value="member" selected>Membro</option>
-                                    <option value="manager">Gestor</option>
-                                    <option value="admin">Administrador</option>
-                                    <option value="billing">Financeiro</option>
+                                <label for="invite-tenant-select" class="block text-sm font-medium">Empresa</label>
+                                <select id="invite-tenant-select" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                    <option value="">Selecione a empresa</option>
                                 </select>
                             </div>
                             <button type="submit" class="w-full rounded-lg bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]">
@@ -682,50 +684,6 @@
                                 <p class="text-sm text-slate-500">Nenhum convite no momento.</p>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
-                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-slate-200 pb-2">
-                        <div>
-                            <h3 class="text-lg font-semibold">Cadastro de Clientes</h3>
-                            <p class="text-sm text-[var(--ink-soft)]">Base de clientes da empresa para reaproveitar dados em documentos.</p>
-                        </div>
-                    </div>
-                    <form id="client-form" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <input type="hidden" id="client-id-input">
-                        <div class="xl:col-span-2">
-                            <label for="client-name-input" class="block text-sm font-medium">Nome/Razão Social</label>
-                            <input id="client-name-input" type="text" required class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Cliente">
-                        </div>
-                        <div>
-                            <label for="client-email-input" class="block text-sm font-medium">E-mail</label>
-                            <input id="client-email-input" type="email" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="cliente@email.com">
-                        </div>
-                        <div>
-                            <label for="client-phone-input" class="block text-sm font-medium">WhatsApp</label>
-                            <input id="client-phone-input" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="(47) 99999-9999">
-                        </div>
-                        <div>
-                            <label for="client-document-input" class="block text-sm font-medium">CPF/CNPJ</label>
-                            <input id="client-document-input" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Documento">
-                        </div>
-                        <div class="sm:col-span-2 xl:col-span-2">
-                            <label for="client-notes-input" class="block text-sm font-medium">Observações</label>
-                            <input id="client-notes-input" type="text" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Anotações úteis">
-                        </div>
-                        <div class="sm:col-span-2 xl:col-span-4 flex flex-wrap gap-2 justify-end border-t border-slate-200 pt-3">
-                            <button id="client-form-reset-btn" type="button" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                                Limpar
-                            </button>
-                            <button type="submit" class="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]">
-                                Salvar Cliente
-                            </button>
-                        </div>
-                    </form>
-
-                    <div id="tenant-client-list" class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                        <p class="col-span-full text-sm text-slate-500">Carregando clientes...</p>
                     </div>
                 </div>
 
